@@ -1,0 +1,73 @@
+# Test program for control flow and variables
+
+fn abs(x: int): int {
+    if (x < 0) {
+        return 0 - x
+    }
+    return x
+}
+
+fn max(a: int, b: int): int {
+    if (a > b) {
+        return a
+    } else {
+        return b
+    }
+}
+
+fn min(a: int, b: int): int {
+    if (a < b) {
+        return a
+    } else {
+        return b
+    }
+}
+
+fn is_zero(x: int): int {
+    if (x == 0) {
+        return 1
+    } else {
+        return 0
+    }
+}
+
+fn clamp(x: int, lo: int, hi: int): int {
+    result: int = x
+    if (x < lo) {
+        result = lo
+    }
+    if (x > hi) {
+        result = hi
+    }
+    return result
+}
+
+fn main(): int {
+    a: int = 10
+    b: int = 3
+
+    # Test max/min
+    print(max(a, b))    # 10
+    print(min(a, b))    # 3
+
+    # Test abs
+    print(abs(5))       # 5
+    print(abs(0 - 7))   # 7
+
+    # Test is_zero
+    print(is_zero(0))   # 1
+    print(is_zero(5))   # 0
+
+    # Test clamp
+    print(clamp(5, 0, 10))   # 5
+    print(clamp(15, 0, 10))  # 10
+    print(clamp(0 - 5, 0, 10)) # 0
+
+    # Test variable reassignment
+    x: int = 1
+    x = x + 1
+    x = x + 1
+    print(x)            # 3
+
+    return 0
+}
