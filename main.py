@@ -13,7 +13,6 @@ def main():
     for token in tokens:
         print(token)
 
-    print("hello  world")
 
 if __name__ == "__main__":
     main()
