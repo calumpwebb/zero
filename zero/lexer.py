@@ -174,7 +174,10 @@ class Lexer:
         digits = ""
         while not self.at_end() and self.current().isdigit():
             digits += self.advance()
-        return Token(TokenType.INT, int(digits))
+        value = int(digits)
+        if value > 9223372036854775807:  # i64 max
+            raise SyntaxError(f"Integer too large: {digits}")
+        return Token(TokenType.INT, value)
 
     def read_string(self):
         self.advance()  # consume opening "

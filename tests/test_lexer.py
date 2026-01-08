@@ -67,6 +67,22 @@ class TestLiterals:
         """Multiple leading zeros are stripped"""
         assert tokenize("00123") == [Token(TokenType.INT, 123), Token(TokenType.EOF)]
 
+    def test_int_at_i64_max(self):
+        """Maximum i64 value should be accepted"""
+        max_i64 = 9223372036854775807
+        assert tokenize(str(max_i64)) == [Token(TokenType.INT, max_i64), Token(TokenType.EOF)]
+
+    def test_int_over_i64_max_rejected(self):
+        """Values exceeding i64 max should be rejected"""
+        over_max = 9223372036854775808  # max + 1
+        with pytest.raises(SyntaxError, match=r"[Ii]nteger.*range|[Oo]verflow|too large"):
+            tokenize(str(over_max))
+
+    def test_int_way_over_max_rejected(self):
+        """Very large integers should be rejected"""
+        with pytest.raises(SyntaxError, match=r"[Ii]nteger.*range|[Oo]verflow|too large"):
+            tokenize("999999999999999999999999999999")
+
 
 # =============================================================================
 # Identifiers
