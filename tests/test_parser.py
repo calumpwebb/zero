@@ -13,6 +13,12 @@ from zero.ast import (
     BoolLiteral,
     StringLiteral,
     Identifier,
+    VarDecl,
+    Assignment,
+    IfStmt,
+    ForStmt,
+    BreakStmt,
+    ContinueStmt,
 )
 
 
@@ -32,8 +38,24 @@ COLON = T(TokenType.COLON)
 COMMA = T(TokenType.COMMA)
 PLUS = T(TokenType.PLUS)
 MINUS = T(TokenType.MINUS)
+STAR = T(TokenType.STAR)
+PERCENT = T(TokenType.PERCENT)
 TRUE = T(TokenType.TRUE)
 FALSE = T(TokenType.FALSE)
+ASSIGN = T(TokenType.ASSIGN)
+PLUS_EQUAL = T(TokenType.PLUS_EQUAL)
+MINUS_EQUAL = T(TokenType.MINUS_EQUAL)
+EQ = T(TokenType.EQ)
+NE = T(TokenType.NE)
+LT = T(TokenType.LT)
+GT = T(TokenType.GT)
+LE = T(TokenType.LE)
+GE = T(TokenType.GE)
+IF = T(TokenType.IF)
+ELSE = T(TokenType.ELSE)
+FOR = T(TokenType.FOR)
+BREAK = T(TokenType.BREAK)
+CONTINUE = T(TokenType.CONTINUE)
 
 
 def INT(n: int) -> Token:
@@ -73,6 +95,30 @@ class TestLiterals:
         tokens = [STRING("hello"), EOF]
         expr = Parser(tokens).parse_expression()
         assert expr == StringLiteral("hello")
+
+    def test_parse_string_with_expression_content(self):
+        """String containing expression-like content should parse as literal"""
+        tokens = [STRING("5 + 5"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == StringLiteral("5 + 5")
+
+    def test_parse_string_with_keywords(self):
+        """String containing keywords should parse as literal"""
+        tokens = [STRING("fn return if"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == StringLiteral("fn return if")
+
+    def test_parse_string_with_number(self):
+        """String containing a number should parse as literal, not IntLiteral"""
+        tokens = [STRING("123"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == StringLiteral("123")
+
+    def test_parse_string_with_boolean(self):
+        """String containing 'true' should parse as literal, not BoolLiteral"""
+        tokens = [STRING("true"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == StringLiteral("true")
 
     def test_parse_identifier(self):
         tokens = [IDENT("foo"), EOF]
@@ -123,6 +169,69 @@ class TestBinaryExpressions:
             "+",
             BinaryExpr("+", IntLiteral(1), IntLiteral(2)),
             IntLiteral(3),
+        )
+        assert expr == expected
+
+
+# =============================================================================
+# Expressions - Multiplicative
+# =============================================================================
+
+
+class TestMultiplicativeExpressions:
+    def test_parse_multiplication(self):
+        # 3 * 4
+        tokens = [INT(3), STAR, INT(4), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr("*", IntLiteral(3), IntLiteral(4))
+
+    def test_parse_modulo(self):
+        # 10 % 3
+        tokens = [INT(10), PERCENT, INT(3), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr("%", IntLiteral(10), IntLiteral(3))
+
+    def test_multiplication_higher_precedence_than_addition(self):
+        # 5 + 3 * 2 should parse as 5 + (3 * 2)
+        tokens = [INT(5), PLUS, INT(3), STAR, INT(2), EOF]
+        expr = Parser(tokens).parse_expression()
+        expected = BinaryExpr(
+            "+",
+            IntLiteral(5),
+            BinaryExpr("*", IntLiteral(3), IntLiteral(2)),
+        )
+        assert expr == expected
+
+    def test_multiplication_before_addition_left(self):
+        # 3 * 2 + 5 should parse as (3 * 2) + 5
+        tokens = [INT(3), STAR, INT(2), PLUS, INT(5), EOF]
+        expr = Parser(tokens).parse_expression()
+        expected = BinaryExpr(
+            "+",
+            BinaryExpr("*", IntLiteral(3), IntLiteral(2)),
+            IntLiteral(5),
+        )
+        assert expr == expected
+
+    def test_chained_multiplication_left_associative(self):
+        # 2 * 3 * 4 should parse as ((2 * 3) * 4)
+        tokens = [INT(2), STAR, INT(3), STAR, INT(4), EOF]
+        expr = Parser(tokens).parse_expression()
+        expected = BinaryExpr(
+            "*",
+            BinaryExpr("*", IntLiteral(2), IntLiteral(3)),
+            IntLiteral(4),
+        )
+        assert expr == expected
+
+    def test_parentheses_override_precedence(self):
+        # (5 + 3) * 2 should parse as (5 + 3) * 2
+        tokens = [LPAREN, INT(5), PLUS, INT(3), RPAREN, STAR, INT(2), EOF]
+        expr = Parser(tokens).parse_expression()
+        expected = BinaryExpr(
+            "*",
+            BinaryExpr("+", IntLiteral(5), IntLiteral(3)),
+            IntLiteral(2),
         )
         assert expr == expected
 
@@ -372,3 +481,332 @@ class TestParseErrors:
         tokens = [FN, LPAREN, RPAREN, LBRACE, RBRACE, EOF]
         with pytest.raises(SyntaxError):
             Parser(tokens).parse_function()
+
+
+# =============================================================================
+# Variable Declarations and Assignments
+# =============================================================================
+
+
+class TestVariables:
+    def test_parse_var_decl(self):
+        # x: int = 5
+        tokens = [IDENT("x"), COLON, IDENT("int"), ASSIGN, INT(5), EOF]
+        stmt = Parser(tokens).parse_statement()
+        assert stmt == VarDecl("x", "int", IntLiteral(5))
+
+    def test_parse_var_decl_with_expr(self):
+        # y: int = 1 + 2
+        tokens = [IDENT("y"), COLON, IDENT("int"), ASSIGN, INT(1), PLUS, INT(2), EOF]
+        stmt = Parser(tokens).parse_statement()
+        assert stmt == VarDecl("y", "int", BinaryExpr("+", IntLiteral(1), IntLiteral(2)))
+
+    def test_parse_assignment(self):
+        # x = 10
+        tokens = [IDENT("x"), ASSIGN, INT(10), EOF]
+        stmt = Parser(tokens).parse_statement()
+        assert stmt == Assignment("x", IntLiteral(10))
+
+    def test_parse_assignment_with_expr(self):
+        # x = x + 1
+        tokens = [IDENT("x"), ASSIGN, IDENT("x"), PLUS, INT(1), EOF]
+        stmt = Parser(tokens).parse_statement()
+        assert stmt == Assignment("x", BinaryExpr("+", Identifier("x"), IntLiteral(1)))
+
+
+# =============================================================================
+# Comparison Expressions
+# =============================================================================
+
+
+class TestComparisons:
+    def test_parse_comparison_eq(self):
+        # a == b
+        tokens = [IDENT("a"), EQ, IDENT("b"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr("==", Identifier("a"), Identifier("b"))
+
+    def test_parse_comparison_ne(self):
+        # a != b
+        tokens = [IDENT("a"), NE, IDENT("b"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr("!=", Identifier("a"), Identifier("b"))
+
+    def test_parse_comparison_lt(self):
+        # a < b
+        tokens = [IDENT("a"), LT, IDENT("b"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr("<", Identifier("a"), Identifier("b"))
+
+    def test_parse_comparison_gt(self):
+        # a > b
+        tokens = [IDENT("a"), GT, IDENT("b"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr(">", Identifier("a"), Identifier("b"))
+
+    def test_parse_comparison_le(self):
+        # a <= b
+        tokens = [IDENT("a"), LE, IDENT("b"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr("<=", Identifier("a"), Identifier("b"))
+
+    def test_parse_comparison_ge(self):
+        # a >= b
+        tokens = [IDENT("a"), GE, IDENT("b"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr(">=", Identifier("a"), Identifier("b"))
+
+    def test_parse_comparison_precedence(self):
+        # 1 + 2 < 3 + 4 should parse as (1 + 2) < (3 + 4)
+        tokens = [INT(1), PLUS, INT(2), LT, INT(3), PLUS, INT(4), EOF]
+        expr = Parser(tokens).parse_expression()
+        expected = BinaryExpr(
+            "<",
+            BinaryExpr("+", IntLiteral(1), IntLiteral(2)),
+            BinaryExpr("+", IntLiteral(3), IntLiteral(4)),
+        )
+        assert expr == expected
+
+    def test_parse_comparison_with_literals(self):
+        # 5 > 3
+        tokens = [INT(5), GT, INT(3), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr(">", IntLiteral(5), IntLiteral(3))
+
+
+# =============================================================================
+# If/Else Statements
+# =============================================================================
+
+
+class TestIfStatements:
+    def test_parse_if_no_else(self):
+        # if (x > 0) { return 1 }
+        tokens = [
+            IF, LPAREN, IDENT("x"), GT, INT(0), RPAREN,
+            LBRACE, RETURN, INT(1), RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = IfStmt(
+            condition=BinaryExpr(">", Identifier("x"), IntLiteral(0)),
+            then_body=[ReturnStmt(IntLiteral(1))],
+            else_body=None,
+        )
+        assert stmt == expected
+
+    def test_parse_if_else(self):
+        # if (x > 0) { return 1 } else { return 0 }
+        tokens = [
+            IF, LPAREN, IDENT("x"), GT, INT(0), RPAREN,
+            LBRACE, RETURN, INT(1), RBRACE,
+            ELSE,
+            LBRACE, RETURN, INT(0), RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = IfStmt(
+            condition=BinaryExpr(">", Identifier("x"), IntLiteral(0)),
+            then_body=[ReturnStmt(IntLiteral(1))],
+            else_body=[ReturnStmt(IntLiteral(0))],
+        )
+        assert stmt == expected
+
+    def test_parse_if_with_multiple_statements(self):
+        # if (true) { print(1) return 2 }
+        tokens = [
+            IF, LPAREN, TRUE, RPAREN,
+            LBRACE,
+            IDENT("print"), LPAREN, INT(1), RPAREN,
+            RETURN, INT(2),
+            RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = IfStmt(
+            condition=BoolLiteral(True),
+            then_body=[
+                ExprStmt(Call("print", [IntLiteral(1)])),
+                ReturnStmt(IntLiteral(2)),
+            ],
+            else_body=None,
+        )
+        assert stmt == expected
+
+    def test_parse_if_with_comparison_condition(self):
+        # if (a == b) { return 1 }
+        tokens = [
+            IF, LPAREN, IDENT("a"), EQ, IDENT("b"), RPAREN,
+            LBRACE, RETURN, INT(1), RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = IfStmt(
+            condition=BinaryExpr("==", Identifier("a"), Identifier("b")),
+            then_body=[ReturnStmt(IntLiteral(1))],
+            else_body=None,
+        )
+        assert stmt == expected
+
+
+# =============================================================================
+# Compound Assignment (Desugaring)
+# =============================================================================
+
+
+class TestCompoundAssignment:
+    def test_parse_plus_equal(self):
+        # x += 5 desugars to x = x + 5
+        tokens = [IDENT("x"), PLUS_EQUAL, INT(5), EOF]
+        stmt = Parser(tokens).parse_statement()
+        expected = Assignment("x", BinaryExpr("+", Identifier("x"), IntLiteral(5)))
+        assert stmt == expected
+
+    def test_parse_minus_equal(self):
+        # x -= 3 desugars to x = x - 3
+        tokens = [IDENT("x"), MINUS_EQUAL, INT(3), EOF]
+        stmt = Parser(tokens).parse_statement()
+        expected = Assignment("x", BinaryExpr("-", Identifier("x"), IntLiteral(3)))
+        assert stmt == expected
+
+    def test_parse_plus_equal_with_expression(self):
+        # x += 1 + 2 desugars to x = x + (1 + 2)
+        tokens = [IDENT("x"), PLUS_EQUAL, INT(1), PLUS, INT(2), EOF]
+        stmt = Parser(tokens).parse_statement()
+        expected = Assignment(
+            "x",
+            BinaryExpr("+", Identifier("x"), BinaryExpr("+", IntLiteral(1), IntLiteral(2)))
+        )
+        assert stmt == expected
+
+    def test_parse_minus_equal_with_identifier(self):
+        # x -= y desugars to x = x - y
+        tokens = [IDENT("x"), MINUS_EQUAL, IDENT("y"), EOF]
+        stmt = Parser(tokens).parse_statement()
+        expected = Assignment("x", BinaryExpr("-", Identifier("x"), Identifier("y")))
+        assert stmt == expected
+
+    def test_parse_compound_assignment_in_function(self):
+        # fn main() { x: int = 5  x += 1 }
+        tokens = [
+            FN, IDENT("main"), LPAREN, RPAREN, LBRACE,
+            IDENT("x"), COLON, IDENT("int"), ASSIGN, INT(5),
+            IDENT("x"), PLUS_EQUAL, INT(1),
+            RBRACE, EOF,
+        ]
+        fn = Parser(tokens).parse_function()
+        expected = Function(
+            "main",
+            [],
+            None,
+            [
+                VarDecl("x", "int", IntLiteral(5)),
+                Assignment("x", BinaryExpr("+", Identifier("x"), IntLiteral(1))),
+            ],
+        )
+        assert fn == expected
+
+
+# =============================================================================
+# For Loop Statements
+# =============================================================================
+
+
+class TestForLoops:
+    def test_parse_for_loop(self):
+        # for (i < 10) { print(i) }
+        tokens = [
+            FOR, LPAREN, IDENT("i"), LT, INT(10), RPAREN,
+            LBRACE,
+            IDENT("print"), LPAREN, IDENT("i"), RPAREN,
+            RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = ForStmt(
+            condition=BinaryExpr("<", Identifier("i"), IntLiteral(10)),
+            body=[ExprStmt(Call("print", [Identifier("i")]))],
+        )
+        assert stmt == expected
+
+    def test_parse_for_with_break(self):
+        # for (true) { break }
+        tokens = [
+            FOR, LPAREN, TRUE, RPAREN,
+            LBRACE, BREAK, RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = ForStmt(
+            condition=BoolLiteral(True),
+            body=[BreakStmt()],
+        )
+        assert stmt == expected
+
+    def test_parse_for_with_continue(self):
+        # for (true) { continue }
+        tokens = [
+            FOR, LPAREN, TRUE, RPAREN,
+            LBRACE, CONTINUE, RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = ForStmt(
+            condition=BoolLiteral(True),
+            body=[ContinueStmt()],
+        )
+        assert stmt == expected
+
+    def test_parse_nested_for(self):
+        # for (i < 3) { for (j < 3) { break } }
+        tokens = [
+            FOR, LPAREN, IDENT("i"), LT, INT(3), RPAREN,
+            LBRACE,
+            FOR, LPAREN, IDENT("j"), LT, INT(3), RPAREN,
+            LBRACE, BREAK, RBRACE,
+            RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = ForStmt(
+            condition=BinaryExpr("<", Identifier("i"), IntLiteral(3)),
+            body=[
+                ForStmt(
+                    condition=BinaryExpr("<", Identifier("j"), IntLiteral(3)),
+                    body=[BreakStmt()],
+                )
+            ],
+        )
+        assert stmt == expected
+
+    def test_parse_for_with_multiple_statements(self):
+        # for (i < 10) { print(i) i += 1 }
+        tokens = [
+            FOR, LPAREN, IDENT("i"), LT, INT(10), RPAREN,
+            LBRACE,
+            IDENT("print"), LPAREN, IDENT("i"), RPAREN,
+            IDENT("i"), PLUS_EQUAL, INT(1),
+            RBRACE,
+            EOF,
+        ]
+        stmt = Parser(tokens).parse_statement()
+        expected = ForStmt(
+            condition=BinaryExpr("<", Identifier("i"), IntLiteral(10)),
+            body=[
+                ExprStmt(Call("print", [Identifier("i")])),
+                Assignment("i", BinaryExpr("+", Identifier("i"), IntLiteral(1))),
+            ],
+        )
+        assert stmt == expected
+
+    def test_parse_break_statement(self):
+        # break
+        tokens = [BREAK, EOF]
+        stmt = Parser(tokens).parse_statement()
+        assert stmt == BreakStmt()
+
+    def test_parse_continue_statement(self):
+        # continue
+        tokens = [CONTINUE, EOF]
+        stmt = Parser(tokens).parse_statement()
+        assert stmt == ContinueStmt()

@@ -39,6 +39,34 @@ class TestLiterals:
     def test_empty_string(self):
         assert tokenize('""') == [Token(TokenType.STRING, ""), Token(TokenType.EOF)]
 
+    def test_string_with_expression_content(self):
+        """String containing expression-like content should remain literal"""
+        assert tokenize('"5 + 5"') == [Token(TokenType.STRING, "5 + 5"), Token(TokenType.EOF)]
+
+    def test_string_with_keywords(self):
+        """String containing keywords should remain literal"""
+        assert tokenize('"fn return if"') == [Token(TokenType.STRING, "fn return if"), Token(TokenType.EOF)]
+
+    def test_string_with_number(self):
+        """String containing a number should remain literal"""
+        assert tokenize('"123"') == [Token(TokenType.STRING, "123"), Token(TokenType.EOF)]
+
+    def test_string_with_boolean(self):
+        """String containing boolean keyword should remain literal"""
+        assert tokenize('"true"') == [Token(TokenType.STRING, "true"), Token(TokenType.EOF)]
+
+    def test_string_with_type_name(self):
+        """String containing type name should remain literal"""
+        assert tokenize('"int"') == [Token(TokenType.STRING, "int"), Token(TokenType.EOF)]
+
+    def test_leading_zeros_stripped(self):
+        """Leading zeros are stripped from integers"""
+        assert tokenize("007") == [Token(TokenType.INT, 7), Token(TokenType.EOF)]
+
+    def test_leading_zeros_multiple(self):
+        """Multiple leading zeros are stripped"""
+        assert tokenize("00123") == [Token(TokenType.INT, 123), Token(TokenType.EOF)]
+
 
 # =============================================================================
 # Identifiers
@@ -110,6 +138,12 @@ class TestSymbols:
 
     def test_minus(self):
         assert tokenize("-") == [Token(TokenType.MINUS), Token(TokenType.EOF)]
+
+    def test_star(self):
+        assert tokenize("*") == [Token(TokenType.STAR), Token(TokenType.EOF)]
+
+    def test_percent(self):
+        assert tokenize("%") == [Token(TokenType.PERCENT), Token(TokenType.EOF)]
 
 
 # =============================================================================
@@ -183,6 +217,33 @@ class TestCombinations:
             Token(TokenType.IDENT, "a"),
             Token(TokenType.PLUS),
             Token(TokenType.INT, 1),
+            Token(TokenType.EOF),
+        ]
+
+    def test_adjacent_tokens_no_space(self):
+        """Tokens work correctly without whitespace between them"""
+        assert tokenize("1+2") == [
+            Token(TokenType.INT, 1),
+            Token(TokenType.PLUS),
+            Token(TokenType.INT, 2),
+            Token(TokenType.EOF),
+        ]
+
+    def test_adjacent_idents_with_operator(self):
+        """Identifiers with operators work without spaces"""
+        assert tokenize("a+b") == [
+            Token(TokenType.IDENT, "a"),
+            Token(TokenType.PLUS),
+            Token(TokenType.IDENT, "b"),
+            Token(TokenType.EOF),
+        ]
+
+    def test_adjacent_comparison(self):
+        """Comparison operators work without spaces"""
+        assert tokenize("a==b") == [
+            Token(TokenType.IDENT, "a"),
+            Token(TokenType.EQ),
+            Token(TokenType.IDENT, "b"),
             Token(TokenType.EOF),
         ]
 
@@ -285,7 +346,157 @@ fn main() {
 # =============================================================================
 
 
+# =============================================================================
+# Control Flow Tokens
+# =============================================================================
+
+
+class TestControlFlowTokens:
+    def test_tokenize_if_else(self):
+        assert tokenize("if else") == [
+            Token(TokenType.IF),
+            Token(TokenType.ELSE),
+            Token(TokenType.EOF),
+        ]
+
+    def test_if_not_prefix(self):
+        assert tokenize("iffy") == [Token(TokenType.IDENT, "iffy"), Token(TokenType.EOF)]
+
+    def test_tokenize_comparison_operators(self):
+        assert tokenize("== != < > <= >=") == [
+            Token(TokenType.EQ),
+            Token(TokenType.NE),
+            Token(TokenType.LT),
+            Token(TokenType.GT),
+            Token(TokenType.LE),
+            Token(TokenType.GE),
+            Token(TokenType.EOF),
+        ]
+
+    def test_tokenize_assignment(self):
+        assert tokenize("x = 5") == [
+            Token(TokenType.IDENT, "x"),
+            Token(TokenType.ASSIGN),
+            Token(TokenType.INT, 5),
+            Token(TokenType.EOF),
+        ]
+
+    def test_eq_vs_assign(self):
+        """Single = is assignment, double == is equality"""
+        assert tokenize("x = a == b") == [
+            Token(TokenType.IDENT, "x"),
+            Token(TokenType.ASSIGN),
+            Token(TokenType.IDENT, "a"),
+            Token(TokenType.EQ),
+            Token(TokenType.IDENT, "b"),
+            Token(TokenType.EOF),
+        ]
+
+
+# =============================================================================
+# Errors
+# =============================================================================
+
+
+# =============================================================================
+# Compound Assignment Tokens
+# =============================================================================
+
+
+class TestCompoundAssignmentTokens:
+    def test_plus_equal(self):
+        assert tokenize("+=") == [Token(TokenType.PLUS_EQUAL), Token(TokenType.EOF)]
+
+    def test_minus_equal(self):
+        assert tokenize("-=") == [Token(TokenType.MINUS_EQUAL), Token(TokenType.EOF)]
+
+    def test_plus_equal_in_context(self):
+        assert tokenize("x += 5") == [
+            Token(TokenType.IDENT, "x"),
+            Token(TokenType.PLUS_EQUAL),
+            Token(TokenType.INT, 5),
+            Token(TokenType.EOF),
+        ]
+
+    def test_minus_equal_in_context(self):
+        assert tokenize("x -= 3") == [
+            Token(TokenType.IDENT, "x"),
+            Token(TokenType.MINUS_EQUAL),
+            Token(TokenType.INT, 3),
+            Token(TokenType.EOF),
+        ]
+
+    def test_plus_still_works(self):
+        """Ensure + alone is still PLUS, not confused with +="""
+        assert tokenize("a + b") == [
+            Token(TokenType.IDENT, "a"),
+            Token(TokenType.PLUS),
+            Token(TokenType.IDENT, "b"),
+            Token(TokenType.EOF),
+        ]
+
+    def test_minus_still_works(self):
+        """Ensure - alone is still MINUS, not confused with -="""
+        assert tokenize("a - b") == [
+            Token(TokenType.IDENT, "a"),
+            Token(TokenType.MINUS),
+            Token(TokenType.IDENT, "b"),
+            Token(TokenType.EOF),
+        ]
+
+
+# =============================================================================
+# Errors
+# =============================================================================
+
+
+# =============================================================================
+# Loop Tokens
+# =============================================================================
+
+
+class TestLoopTokens:
+    def test_tokenize_for(self):
+        assert tokenize("for") == [Token(TokenType.FOR), Token(TokenType.EOF)]
+
+    def test_tokenize_break(self):
+        assert tokenize("break") == [Token(TokenType.BREAK), Token(TokenType.EOF)]
+
+    def test_tokenize_continue(self):
+        assert tokenize("continue") == [Token(TokenType.CONTINUE), Token(TokenType.EOF)]
+
+    def test_for_not_prefix(self):
+        assert tokenize("format") == [Token(TokenType.IDENT, "format"), Token(TokenType.EOF)]
+
+    def test_for_loop_structure(self):
+        assert tokenize("for (i < 10) { break }") == [
+            Token(TokenType.FOR),
+            Token(TokenType.LPAREN),
+            Token(TokenType.IDENT, "i"),
+            Token(TokenType.LT),
+            Token(TokenType.INT, 10),
+            Token(TokenType.RPAREN),
+            Token(TokenType.LBRACE),
+            Token(TokenType.BREAK),
+            Token(TokenType.RBRACE),
+            Token(TokenType.EOF),
+        ]
+
+
+# =============================================================================
+# Errors
+# =============================================================================
+
+
 class TestErrors:
     def test_invalid_character(self):
         with pytest.raises(SyntaxError):
             tokenize("@")
+
+    def test_unterminated_string(self):
+        with pytest.raises(SyntaxError, match=r"[Uu]nterminated"):
+            tokenize('"hello')
+
+    def test_unterminated_string_empty(self):
+        with pytest.raises(SyntaxError, match=r"[Uu]nterminated"):
+            tokenize('"')

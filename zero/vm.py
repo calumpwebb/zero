@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from zero.bytecode import Op, Chunk, CompiledProgram
+from zero.builtins import BUILTIN_IMPLS
 
 
 @dataclass
@@ -9,7 +10,13 @@ class CallFrame:
     stack_base: int
 
 
+class VMError(Exception):
+    pass
+
+
 class VM:
+    MAX_CALL_DEPTH = 1000
+
     def __init__(self, program):
         self.program = program
         self.stack = []
@@ -66,6 +73,90 @@ class VM:
                     a = self.pop()
                     self.push(a - b)
 
+                case Op.MUL_INT:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a * b)
+
+                case Op.MOD_INT:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a % b)
+
+                case Op.STORE:
+                    slot = chunk.code[frame.ip]
+                    frame.ip += 1
+                    value = self.pop()
+                    # Extend stack if needed for new local variables
+                    target_idx = frame.stack_base + slot
+                    while len(self.stack) <= target_idx:
+                        self.stack.append(None)
+                    self.stack[target_idx] = value
+
+                # Integer comparisons
+                case Op.CMP_EQ_INT:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a == b)
+
+                case Op.CMP_NE_INT:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a != b)
+
+                case Op.CMP_LT_INT:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a < b)
+
+                case Op.CMP_GT_INT:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a > b)
+
+                case Op.CMP_LE_INT:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a <= b)
+
+                case Op.CMP_GE_INT:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a >= b)
+
+                # Bool comparisons
+                case Op.CMP_EQ_BOOL:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a == b)
+
+                case Op.CMP_NE_BOOL:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a != b)
+
+                # String comparisons
+                case Op.CMP_EQ_STR:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a == b)
+
+                case Op.CMP_NE_STR:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a != b)
+
+                case Op.JUMP:
+                    addr = chunk.code[frame.ip]
+                    frame.ip = addr
+
+                case Op.JUMP_IF_FALSE:
+                    addr = chunk.code[frame.ip]
+                    frame.ip += 1
+                    condition = self.pop()
+                    if not condition:
+                        frame.ip = addr
+
                 case Op.POP:
                     self.pop()
 
@@ -74,6 +165,9 @@ class VM:
                     frame.ip += 1
                     argc = chunk.code[frame.ip]
                     frame.ip += 1
+
+                    if len(self.frames) >= self.MAX_CALL_DEPTH:
+                        raise VMError(f"maximum recursion depth exceeded ({self.MAX_CALL_DEPTH})")
 
                     func_chunk = self.program.chunks[func_idx]
                     new_base = len(self.stack) - argc
@@ -85,10 +179,11 @@ class VM:
                     argc = chunk.code[frame.ip]
                     frame.ip += 1
 
-                    if builtin_idx == 0:  # print
-                        value = self.pop()
-                        print(value)
-                        self.push(0)
+                    # Pop arguments and call the builtin implementation
+                    args = [self.pop() for _ in range(argc)]
+                    args.reverse()  # restore original order
+                    result = BUILTIN_IMPLS[builtin_idx](*args)
+                    self.push(result)
 
                 case Op.RET:
                     return_value = self.pop()
