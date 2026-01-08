@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Zero",
+  "scopeName": "source.zero",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#numbers" },
+    { "include": "#functions" },
+    { "include": "#types" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.number-sign.zero",
+      "match": "#.*$"
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.zero",
+          "match": "\\b(fn|return)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.zero",
+      "match": "\\b[0-9]+\\b"
+    },
+    "functions": {
+      "name": "entity.name.function.zero",
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()"
+    },
+    "types": {
+      "name": "entity.name.type.zero",
+      "match": ":\\s*([a-zA-Z_][a-zA-Z0-9_]*)",
+      "captures": {
+        "1": { "name": "entity.name.type.zero" }
+      }
+    },
+    "operators": {
+      "name": "keyword.operator.zero",
+      "match": "[+]"
+    }
+  }
+}

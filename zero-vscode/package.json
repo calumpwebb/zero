@@ -1,0 +1,27 @@
+{
+  "name": "zero-language",
+  "displayName": "Zero Language",
+  "description": "Syntax highlighting for the Zero programming language",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "zero",
+        "aliases": ["Zero", "zero"],
+        "extensions": [".zero"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "zero",
+        "scopeName": "source.zero",
+        "path": "./syntaxes/zero.tmLanguage.json"
+      }
+    ]
+  }
+}
