@@ -7,6 +7,11 @@ class TokenType(Enum):
     RETURN = auto()
     TRUE = auto()
     FALSE = auto()
+    IF = auto()
+    ELSE = auto()
+    FOR = auto()
+    BREAK = auto()
+    CONTINUE = auto()
     INT = auto()
     STRING = auto()
     IDENT = auto()
@@ -18,6 +23,17 @@ class TokenType(Enum):
     COMMA = auto()
     PLUS = auto()
     MINUS = auto()
+    STAR = auto()
+    PERCENT = auto()
+    PLUS_EQUAL = auto()
+    MINUS_EQUAL = auto()
+    ASSIGN = auto()
+    EQ = auto()
+    NE = auto()
+    LT = auto()
+    GT = auto()
+    LE = auto()
+    GE = auto()
     EOF = auto()
 
 
@@ -32,6 +48,11 @@ KEYWORDS = {
     "return": TokenType.RETURN,
     "true": TokenType.TRUE,
     "false": TokenType.FALSE,
+    "if": TokenType.IF,
+    "else": TokenType.ELSE,
+    "for": TokenType.FOR,
+    "break": TokenType.BREAK,
+    "continue": TokenType.CONTINUE,
 }
 
 SYMBOLS = {
@@ -43,6 +64,8 @@ SYMBOLS = {
     ",": TokenType.COMMA,
     "+": TokenType.PLUS,
     "-": TokenType.MINUS,
+    "*": TokenType.STAR,
+    "%": TokenType.PERCENT,
 }
 
 
@@ -65,6 +88,12 @@ class Lexer:
 
     def current(self):
         return self.source[self.pos]
+
+    def peek(self, offset=1):
+        pos = self.pos + offset
+        if pos >= len(self.source):
+            return "\0"
+        return self.source[pos]
 
     def advance(self):
         char = self.source[self.pos]
@@ -93,6 +122,43 @@ class Lexer:
 
         if char.isalpha() or char == "_":
             return self.read_identifier()
+
+        # Multi-character operators
+        if char == "=" and self.peek() == "=":
+            self.advance()
+            self.advance()
+            return Token(TokenType.EQ)
+        if char == "!" and self.peek() == "=":
+            self.advance()
+            self.advance()
+            return Token(TokenType.NE)
+        if char == "<" and self.peek() == "=":
+            self.advance()
+            self.advance()
+            return Token(TokenType.LE)
+        if char == ">" and self.peek() == "=":
+            self.advance()
+            self.advance()
+            return Token(TokenType.GE)
+        if char == "+" and self.peek() == "=":
+            self.advance()
+            self.advance()
+            return Token(TokenType.PLUS_EQUAL)
+        if char == "-" and self.peek() == "=":
+            self.advance()
+            self.advance()
+            return Token(TokenType.MINUS_EQUAL)
+
+        # Single-character operators
+        if char == "=":
+            self.advance()
+            return Token(TokenType.ASSIGN)
+        if char == "<":
+            self.advance()
+            return Token(TokenType.LT)
+        if char == ">":
+            self.advance()
+            return Token(TokenType.GT)
 
         if char in SYMBOLS:
             self.advance()

@@ -52,7 +52,64 @@ class ExprStmt:
     expr: Expr
 
 
-Stmt = ReturnStmt | ExprStmt
+@dataclass(frozen=True)
+class VarDecl:
+    name: str
+    type: str
+    value: "Expr"
+
+
+@dataclass(frozen=True)
+class Assignment:
+    name: str
+    value: "Expr"
+
+
+@dataclass(frozen=True)
+class IfStmt:
+    condition: "Expr"
+    then_body: list
+    else_body: list | None
+
+    def __eq__(self, other):
+        if not isinstance(other, IfStmt):
+            return NotImplemented
+        return (
+            self.condition == other.condition
+            and list(self.then_body) == list(other.then_body)
+            and (
+                (self.else_body is None and other.else_body is None)
+                or (
+                    self.else_body is not None
+                    and other.else_body is not None
+                    and list(self.else_body) == list(other.else_body)
+                )
+            )
+        )
+
+
+@dataclass(frozen=True)
+class ForStmt:
+    condition: "Expr"
+    body: list
+
+    def __eq__(self, other):
+        if not isinstance(other, ForStmt):
+            return NotImplemented
+        return self.condition == other.condition and list(self.body) == list(other.body)
+
+
+@dataclass(frozen=True)
+class BreakStmt:
+    pass
+
+
+@dataclass(frozen=True)
+class ContinueStmt:
+    pass
+
+
+Stmt = ReturnStmt | ExprStmt | VarDecl | Assignment | IfStmt | ForStmt | BreakStmt | ContinueStmt
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,209 @@
+# Zero Language Showcase
+# Demonstrates all language features
+
+# =============================================================================
+# Functions returning different types
+# =============================================================================
+
+fn is_positive(x: int): bool {
+    if (x > 0) {
+        return true
+    } else {
+        return false
+    }
+}
+
+fn is_even(n: int): bool {
+    # Hacky even check using subtraction
+    # (we don't have modulo yet!)
+    if (n == 0) {
+        return true
+    }
+    if (n == 1) {
+        return false
+    }
+    if (n == 2) {
+        return true
+    }
+    if (n == 3) {
+        return false
+    }
+    if (n == 4) {
+        return true
+    }
+    if (n == 5) {
+        return false
+    }
+    return false
+}
+
+fn abs(x: int): int {
+    if (x < 0) {
+        return 0 - x
+    }
+    return x
+}
+
+fn max(a: int, b: int): int {
+    if (a > b) {
+        return a
+    } else {
+        return b
+    }
+}
+
+fn min(a: int, b: int): int {
+    if (a < b) {
+        return a
+    } else {
+        return b
+    }
+}
+
+fn clamp(x: int, lo: int, hi: int): int {
+    result: int = x
+    if (x < lo) {
+        result = lo
+    }
+    if (x > hi) {
+        result = hi
+    }
+    return result
+}
+
+# =============================================================================
+# String functions
+# =============================================================================
+
+fn greet(name: str): str {
+    return "Hello, " + name + "!"
+}
+
+fn describe_number(n: int): str {
+    if (n < 0) {
+        return "negative"
+    }
+    if (n == 0) {
+        return "zero"
+    }
+    return "positive"
+}
+
+fn bool_to_str(b: bool): str {
+    if (b) {
+        return "yes"
+    } else {
+        return "no"
+    }
+}
+
+# =============================================================================
+# Main - run all demos
+# =============================================================================
+
+fn main() {
+    print("=== Zero Language Showcase ===")
+    print("")
+
+    # --- Integer operations ---
+    print("--- Integer Operations ---")
+    a: int = 10
+    b: int = 3
+    print("a = 10, b = 3")
+
+    print("max(a, b):")
+    print(max(a, b))
+
+    print("min(a, b):")
+    print(min(a, b))
+
+    print("abs(-7):")
+    print(abs(0 - 7))
+
+    print("clamp(15, 0, 10):")
+    print(clamp(15, 0, 10))
+    print("")
+
+    # --- Boolean operations ---
+    print("--- Boolean Operations ---")
+    print("is_positive(5):")
+    print(is_positive(5))
+
+    print("is_positive(-3):")
+    print(is_positive(0 - 3))
+
+    print("is_even(4):")
+    print(is_even(4))
+
+    print("is_even(3):")
+    print(is_even(3))
+    print("")
+
+    # --- String operations ---
+    print("--- String Operations ---")
+    name: str = "World"
+    print(greet(name))
+
+    greeting: str = "Welcome to " + "Zero" + "!"
+    print(greeting)
+    print("")
+
+    # --- Mixed: strings from logic ---
+    print("--- Describe Numbers ---")
+    print("describe_number(42):")
+    print(describe_number(42))
+
+    print("describe_number(0):")
+    print(describe_number(0))
+
+    print("describe_number(-5):")
+    print(describe_number(0 - 5))
+    print("")
+
+    # --- Comparisons showcase ---
+    print("--- All Comparisons ---")
+    x: int = 5
+    y: int = 5
+
+    print("x = 5, y = 5")
+    print("x == y:")
+    print(x == y)
+
+    print("x != y:")
+    print(x != y)
+
+    print("x < 10:")
+    print(x < 10)
+
+    print("x > 10:")
+    print(x > 10)
+
+    print("x <= 5:")
+    print(x <= 5)
+
+    print("x >= 5:")
+    print(x >= 5)
+    print("")
+
+    # --- Variable reassignment ---
+    print("--- Variable Reassignment ---")
+    counter: int = 0
+    print("counter starts at 0")
+    counter = counter + 1
+    counter = counter + 1
+    counter = counter + 1
+    print("after 3 increments:")
+    print(counter)
+    print("")
+
+    # --- Nested function calls ---
+    print("--- Nested Calls ---")
+    print("max(min(10, 20), 15):")
+    print(max(min(10, 20), 15))
+
+    print("abs(min(-5, -10)):")
+    print(abs(min(0 - 5, 0 - 10)))
+    print("")
+
+    print("=== Showcase Complete ===")
+}

@@ -1,0 +1,20 @@
+# Compound assignment operators: += and -=
+
+fn main() {
+    # Basic usage
+    x: int = 10
+    print(x)
+    
+    x += 5
+    print(x)
+    
+    x -= 3
+    print(x)
+    
+    # Multiple operations
+    counter: int = 0
+    counter += 1
+    counter += 1
+    counter += 1
+    print(counter)
+}

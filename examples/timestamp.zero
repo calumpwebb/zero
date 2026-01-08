@@ -1,0 +1,5 @@
+# Example: using the now() builtin to get the current Unix timestamp
+
+fn main() {
+    print(now())
+}

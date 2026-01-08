@@ -11,6 +11,12 @@ from zero.ast import (
     BoolLiteral,
     StringLiteral,
     Identifier,
+    VarDecl,
+    Assignment,
+    IfStmt,
+    ForStmt,
+    BreakStmt,
+    ContinueStmt,
 )
 
 
@@ -53,18 +59,62 @@ class Parser:
         return self.check(TokenType.EOF)
 
     def parse_expression(self):
-        return self.parse_additive()
+        return self.parse_comparison()
+
+    def parse_comparison(self):
+        left = self.parse_additive()
+
+        # Non-associative: only parse one comparison operator
+        if self.check(TokenType.EQ):
+            self.advance()
+            right = self.parse_additive()
+            return BinaryExpr("==", left, right)
+        if self.check(TokenType.NE):
+            self.advance()
+            right = self.parse_additive()
+            return BinaryExpr("!=", left, right)
+        if self.check(TokenType.LT):
+            self.advance()
+            right = self.parse_additive()
+            return BinaryExpr("<", left, right)
+        if self.check(TokenType.GT):
+            self.advance()
+            right = self.parse_additive()
+            return BinaryExpr(">", left, right)
+        if self.check(TokenType.LE):
+            self.advance()
+            right = self.parse_additive()
+            return BinaryExpr("<=", left, right)
+        if self.check(TokenType.GE):
+            self.advance()
+            right = self.parse_additive()
+            return BinaryExpr(">=", left, right)
+
+        return left
 
     def parse_additive(self):
-        left = self.parse_call()
+        left = self.parse_multiplicative()
 
         while self.check(TokenType.PLUS) or self.check(TokenType.MINUS):
             if self.match(TokenType.PLUS):
-                right = self.parse_call()
+                right = self.parse_multiplicative()
                 left = BinaryExpr("+", left, right)
             elif self.match(TokenType.MINUS):
-                right = self.parse_call()
+                right = self.parse_multiplicative()
                 left = BinaryExpr("-", left, right)
+
+        return left
+
+    def parse_multiplicative(self):
+        left = self.parse_call()
+
+        while self.check(TokenType.STAR) or self.check(TokenType.PERCENT):
+            if self.match(TokenType.STAR):
+                right = self.parse_call()
+                left = BinaryExpr("*", left, right)
+            elif self.match(TokenType.PERCENT):
+                right = self.parse_call()
+                left = BinaryExpr("%", left, right)
 
         return left
 
@@ -122,6 +172,71 @@ class Parser:
         if self.match(TokenType.RETURN):
             expr = self.parse_expression()
             return ReturnStmt(expr)
+
+        # Check for if statement: "if" "(" expr ")" block [ "else" block ]
+        if self.match(TokenType.IF):
+            self.expect(TokenType.LPAREN, "Expected '(' after 'if'")
+            condition = self.parse_expression()
+            self.expect(TokenType.RPAREN, "Expected ')' after condition")
+            self.expect(TokenType.LBRACE, "Expected '{' before then block")
+            then_body = self.parse_block()
+            self.expect(TokenType.RBRACE, "Expected '}' after then block")
+
+            else_body = None
+            if self.match(TokenType.ELSE):
+                self.expect(TokenType.LBRACE, "Expected '{' before else block")
+                else_body = self.parse_block()
+                self.expect(TokenType.RBRACE, "Expected '}' after else block")
+
+            return IfStmt(condition, then_body, else_body)
+
+        # Check for for loop: "for" "(" expr ")" block
+        if self.match(TokenType.FOR):
+            self.expect(TokenType.LPAREN, "Expected '(' after 'for'")
+            condition = self.parse_expression()
+            self.expect(TokenType.RPAREN, "Expected ')' after condition")
+            self.expect(TokenType.LBRACE, "Expected '{' before loop body")
+            body = self.parse_block()
+            self.expect(TokenType.RBRACE, "Expected '}' after loop body")
+            return ForStmt(condition, body)
+
+        # Check for break statement
+        if self.match(TokenType.BREAK):
+            return BreakStmt()
+
+        # Check for continue statement
+        if self.match(TokenType.CONTINUE):
+            return ContinueStmt()
+
+        # Check for variable declaration: IDENT ":" type "=" expr
+        if self.check(TokenType.IDENT) and self.peek(1).type == TokenType.COLON:
+            name_token = self.advance()
+            self.expect(TokenType.COLON, "Expected ':' after variable name")
+            type_token = self.expect(TokenType.IDENT, "Expected type")
+            self.expect(TokenType.ASSIGN, "Expected '=' in variable declaration")
+            value = self.parse_expression()
+            return VarDecl(name_token.value, type_token.value, value)
+
+        # Check for assignment: IDENT "=" expr
+        if self.check(TokenType.IDENT) and self.peek(1).type == TokenType.ASSIGN:
+            name_token = self.advance()
+            self.expect(TokenType.ASSIGN, "Expected '='")
+            value = self.parse_expression()
+            return Assignment(name_token.value, value)
+
+        # Check for compound assignment: IDENT "+=" expr or IDENT "-=" expr
+        # Desugar: x += e  →  x = x + e
+        if self.check(TokenType.IDENT) and self.peek(1).type == TokenType.PLUS_EQUAL:
+            name_token = self.advance()
+            self.advance()  # consume +=
+            value = self.parse_expression()
+            return Assignment(name_token.value, BinaryExpr("+", Identifier(name_token.value), value))
+
+        if self.check(TokenType.IDENT) and self.peek(1).type == TokenType.MINUS_EQUAL:
+            name_token = self.advance()
+            self.advance()  # consume -=
+            value = self.parse_expression()
+            return Assignment(name_token.value, BinaryExpr("-", Identifier(name_token.value), value))
 
         expr = self.parse_expression()
         return ExprStmt(expr)

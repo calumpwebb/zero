@@ -42,7 +42,7 @@ fn clamp(x: int, lo: int, hi: int): int {
     return result
 }
 
-fn main(): int {
+fn main() {
     a: int = 10
     b: int = 3
 
@@ -68,6 +68,4 @@ fn main(): int {
     x = x + 1
     x = x + 1
     print(x)            # 3
-
-    return 0
 }

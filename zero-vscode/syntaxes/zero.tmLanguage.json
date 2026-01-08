@@ -4,7 +4,9 @@
   "scopeName": "source.zero",
   "patterns": [
     { "include": "#comments" },
+    { "include": "#strings" },
     { "include": "#keywords" },
+    { "include": "#constants" },
     { "include": "#numbers" },
     { "include": "#functions" },
     { "include": "#types" },
@@ -15,13 +17,28 @@
       "name": "comment.line.number-sign.zero",
       "match": "#.*$"
     },
+    "strings": {
+      "name": "string.quoted.double.zero",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.zero",
+          "match": "\\\\."
+        }
+      ]
+    },
     "keywords": {
       "patterns": [
         {
           "name": "keyword.control.zero",
-          "match": "\\b(fn|return)\\b"
+          "match": "\\b(fn|return|if|else)\\b"
         }
       ]
+    },
+    "constants": {
+      "name": "constant.language.zero",
+      "match": "\\b(true|false)\\b"
     },
     "numbers": {
       "name": "constant.numeric.zero",
@@ -39,8 +56,20 @@
       }
     },
     "operators": {
-      "name": "keyword.operator.zero",
-      "match": "[+]"
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.zero",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.assignment.zero",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.arithmetic.zero",
+          "match": "[+\\-]"
+        }
+      ]
     }
   }
 }

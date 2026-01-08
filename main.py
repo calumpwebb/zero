@@ -4,7 +4,8 @@ from zero.parser import parse
 from zero.semantic import analyze, SemanticError
 from zero.compiler import compile_program
 from zero.vm import run
-from zero.bytecode import Op, BUILTINS
+from zero.bytecode import Op
+from zero.builtins import BUILTIN_INDICES
 
 
 def disassemble_chunk(name, idx, chunk, function_index):
@@ -26,9 +27,63 @@ def disassemble_chunk(name, idx, chunk, function_index):
                 slot = chunk.code[i + 1]
                 print(f"  {i:04d} LOAD {slot}")
                 i += 2
-            case Op.ADD:
-                print(f"  {i:04d} ADD")
+            case Op.STORE:
+                slot = chunk.code[i + 1]
+                print(f"  {i:04d} STORE {slot}")
+                i += 2
+            case Op.ADD_INT:
+                print(f"  {i:04d} ADD_INT")
                 i += 1
+            case Op.SUB_INT:
+                print(f"  {i:04d} SUB_INT")
+                i += 1
+            case Op.MUL_INT:
+                print(f"  {i:04d} MUL_INT")
+                i += 1
+            case Op.MOD_INT:
+                print(f"  {i:04d} MOD_INT")
+                i += 1
+            case Op.ADD_STR:
+                print(f"  {i:04d} ADD_STR")
+                i += 1
+            case Op.CMP_EQ_INT:
+                print(f"  {i:04d} CMP_EQ_INT")
+                i += 1
+            case Op.CMP_NE_INT:
+                print(f"  {i:04d} CMP_NE_INT")
+                i += 1
+            case Op.CMP_LT_INT:
+                print(f"  {i:04d} CMP_LT_INT")
+                i += 1
+            case Op.CMP_GT_INT:
+                print(f"  {i:04d} CMP_GT_INT")
+                i += 1
+            case Op.CMP_LE_INT:
+                print(f"  {i:04d} CMP_LE_INT")
+                i += 1
+            case Op.CMP_GE_INT:
+                print(f"  {i:04d} CMP_GE_INT")
+                i += 1
+            case Op.CMP_EQ_BOOL:
+                print(f"  {i:04d} CMP_EQ_BOOL")
+                i += 1
+            case Op.CMP_NE_BOOL:
+                print(f"  {i:04d} CMP_NE_BOOL")
+                i += 1
+            case Op.CMP_EQ_STR:
+                print(f"  {i:04d} CMP_EQ_STR")
+                i += 1
+            case Op.CMP_NE_STR:
+                print(f"  {i:04d} CMP_NE_STR")
+                i += 1
+            case Op.JUMP:
+                addr = chunk.code[i + 1]
+                print(f"  {i:04d} JUMP {addr}")
+                i += 2
+            case Op.JUMP_IF_FALSE:
+                addr = chunk.code[i + 1]
+                print(f"  {i:04d} JUMP_IF_FALSE {addr}")
+                i += 2
             case Op.CALL:
                 func_idx = chunk.code[i + 1]
                 argc = chunk.code[i + 2]
@@ -45,7 +100,7 @@ def disassemble_chunk(name, idx, chunk, function_index):
                 builtin_idx = chunk.code[i + 1]
                 argc = chunk.code[i + 2]
                 builtin_name = next(
-                    (k for k, v in BUILTINS.items() if v == builtin_idx),
+                    (k for k, v in BUILTIN_INDICES.items() if v == builtin_idx),
                     f"<builtin {builtin_idx}>"
                 )
                 print(f"  {i:04d} CALL_BUILTIN {builtin_idx} ({builtin_name}), {argc} args")
