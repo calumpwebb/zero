@@ -32,7 +32,7 @@
       "patterns": [
         {
           "name": "keyword.control.zero",
-          "match": "\\b(fn|return|if|else)\\b"
+          "match": "\\b(fn|return|if|else|for|break|continue)\\b"
         }
       ]
     },
