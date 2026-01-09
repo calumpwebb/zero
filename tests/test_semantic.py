@@ -11,6 +11,7 @@ from zero.ast import (
     Assignment,
     Identifier,
     BinaryExpr,
+    UnaryExpr,
     IfStmt,
     ForStmt,
     BreakStmt,
@@ -404,3 +405,29 @@ class TestForLoopAnalysis:
             ]),
         ])
         analyze(program)  # should not raise
+
+
+# =============================================================================
+# Unary Minus Type Checking
+# =============================================================================
+
+
+class TestUnaryMinusTypeChecking:
+    def test_unary_minus_int_ok(self):
+        # -5 should work
+        program = Program([
+            Function("main", [], None, [
+                ReturnStmt(UnaryExpr("-", IntLiteral(5))),
+            ]),
+        ])
+        analyze(program)  # should not raise
+
+    def test_unary_minus_bool_error(self):
+        # -true should fail
+        program = Program([
+            Function("main", [], None, [
+                ReturnStmt(UnaryExpr("-", BoolLiteral(True))),
+            ]),
+        ])
+        with pytest.raises(SemanticError, match=r"negate|type"):
+            analyze(program)

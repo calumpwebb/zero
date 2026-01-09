@@ -29,6 +29,12 @@ class BinaryExpr:
 
 
 @dataclass(frozen=True)
+class UnaryExpr:
+    op: str
+    operand: "Expr"
+
+
+@dataclass(frozen=True)
 class Call:
     name: str
     args: list
@@ -39,7 +45,7 @@ class Call:
         return self.name == other.name and list(self.args) == list(other.args)
 
 
-Expr = IntLiteral | BoolLiteral | StringLiteral | Identifier | BinaryExpr | Call
+Expr = IntLiteral | BoolLiteral | StringLiteral | Identifier | BinaryExpr | UnaryExpr | Call
 
 
 @dataclass(frozen=True)

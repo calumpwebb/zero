@@ -6,6 +6,7 @@ from zero.ast import (
     ReturnStmt,
     ExprStmt,
     BinaryExpr,
+    UnaryExpr,
     Call,
     IntLiteral,
     BoolLiteral,
@@ -106,17 +107,23 @@ class Parser:
         return left
 
     def parse_multiplicative(self):
-        left = self.parse_call()
+        left = self.parse_unary()
 
         while self.check(TokenType.STAR) or self.check(TokenType.PERCENT):
             if self.match(TokenType.STAR):
-                right = self.parse_call()
+                right = self.parse_unary()
                 left = BinaryExpr("*", left, right)
             elif self.match(TokenType.PERCENT):
-                right = self.parse_call()
+                right = self.parse_unary()
                 left = BinaryExpr("%", left, right)
 
         return left
+
+    def parse_unary(self):
+        if self.match(TokenType.MINUS):
+            operand = self.parse_unary()  # right-associative
+            return UnaryExpr("-", operand)
+        return self.parse_call()
 
     def parse_call(self):
         expr = self.parse_primary()

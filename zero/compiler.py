@@ -16,6 +16,7 @@ from zero.ast import (
     StringLiteral,
     Identifier,
     BinaryExpr,
+    UnaryExpr,
     Call,
 )
 from zero.bytecode import Op, Chunk, CompiledProgram
@@ -140,6 +141,17 @@ class Compiler:
                     else:
                         raise TypeError(f"Cannot compare {left_type} >= {right_type}")
                     return "bool"
+
+            case UnaryExpr(op, operand):
+                if op == "-":
+                    # Compile -x as 0 - x
+                    zero_idx = self.add_constant(0)
+                    self.emit(Op.CONST, zero_idx)
+                    operand_type = self.compile_expr(operand)
+                    if operand_type != "int":
+                        raise TypeError(f"Cannot negate {operand_type}")
+                    self.emit(Op.SUB_INT)
+                    return "int"
 
             case Call(name, args):
                 for arg in args:

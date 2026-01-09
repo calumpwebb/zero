@@ -395,3 +395,57 @@ fn main() {
 """
         execute(source)
         assert capsys.readouterr().out == "1\n"
+
+
+# =============================================================================
+# Unary Minus Integration Tests
+# =============================================================================
+
+
+class TestUnaryMinusIntegration:
+    def test_unary_minus_literal(self, capsys):
+        source = """
+fn main() {
+    print(-5)
+}
+"""
+        execute(source)
+        assert capsys.readouterr().out == "-5\n"
+
+    def test_unary_minus_in_expression(self, capsys):
+        source = """
+fn main() {
+    print(10 + -3)
+}
+"""
+        execute(source)
+        assert capsys.readouterr().out == "7\n"
+
+    def test_double_negation(self, capsys):
+        source = """
+fn main() {
+    x: int = 5
+    print(--x)
+}
+"""
+        execute(source)
+        assert capsys.readouterr().out == "5\n"
+
+    def test_unary_minus_variable(self, capsys):
+        source = """
+fn main() {
+    x: int = 7
+    print(-x)
+}
+"""
+        execute(source)
+        assert capsys.readouterr().out == "-7\n"
+
+    def test_unary_minus_in_subtraction(self, capsys):
+        source = """
+fn main() {
+    print(5 - -3)
+}
+"""
+        execute(source)
+        assert capsys.readouterr().out == "8\n"

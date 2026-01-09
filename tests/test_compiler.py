@@ -6,6 +6,7 @@ from zero.ast import (
     ReturnStmt,
     ExprStmt,
     BinaryExpr,
+    UnaryExpr,
     Call,
     IntLiteral,
     BoolLiteral,
@@ -856,3 +857,25 @@ class TestForLoopCompilation:
             Op.JUMP, 16,           # outer break
             Op.JUMP, 0,            # outer loop back
         ]
+
+
+# =============================================================================
+# Unary Expression Compilation
+# =============================================================================
+
+
+class TestUnaryExpressionCompilation:
+    def test_compile_unary_minus(self):
+        # fn main() { return -5 }
+        # Should compile as: CONST 0, CONST 5, SUB_INT, RET
+        program = Program([
+            Function("main", [], None, [
+                ReturnStmt(UnaryExpr("-", IntLiteral(5)))
+            ])
+        ])
+        result = compile_program(program)
+
+        chunk = result.chunks[result.function_index["main"]]
+        # -5 compiles as 0 - 5
+        assert chunk.code == [Op.CONST, 0, Op.CONST, 1, Op.SUB_INT, Op.RET]
+        assert chunk.constants == [0, 5]

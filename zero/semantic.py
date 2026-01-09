@@ -12,6 +12,7 @@ from zero.ast import (
     StringLiteral,
     Identifier,
     BinaryExpr,
+    UnaryExpr,
     Call,
 )
 from zero.builtins import BUILTIN_NAMES, BUILTIN_TYPES
@@ -146,6 +147,13 @@ def check_expr(expr, variables):
         case BinaryExpr(_, left, right):
             check_expr(left, variables)
             check_expr(right, variables)
+        case UnaryExpr(op, operand):
+            check_expr(operand, variables)
+            # Type check: can only negate int
+            if op == "-":
+                operand_type = type_of(operand, variables, BUILTIN_TYPES)
+                if operand_type != "int":
+                    raise SemanticError(f"cannot negate {operand_type}")
         case Call(_, args):
             for arg in args:
                 check_expr(arg, variables)
@@ -170,6 +178,13 @@ def type_of(expr, variables, func_types):
                 return "bool"
             # For arithmetic, return the type of operands (simplified)
             return type_of(left, variables, func_types)
+        case UnaryExpr(op, operand):
+            operand_type = type_of(operand, variables, func_types)
+            if op == "-":
+                if operand_type != "int":
+                    raise SemanticError(f"cannot negate {operand_type}")
+                return "int"
+            return operand_type
         case Call(name, _):
             # Look up the function's return type
             return func_types.get(name, "int")

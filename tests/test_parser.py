@@ -8,6 +8,7 @@ from zero.ast import (
     ReturnStmt,
     ExprStmt,
     BinaryExpr,
+    UnaryExpr,
     Call,
     IntLiteral,
     BoolLiteral,
@@ -171,6 +172,54 @@ class TestBinaryExpressions:
             IntLiteral(3),
         )
         assert expr == expected
+
+
+# =============================================================================
+# Expressions - Multiplicative
+# =============================================================================
+
+
+# =============================================================================
+# Expressions - Unary
+# =============================================================================
+
+
+class TestUnaryExpressions:
+    def test_parse_unary_minus_literal(self):
+        # -5
+        tokens = [MINUS, INT(5), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == UnaryExpr("-", IntLiteral(5))
+
+    def test_parse_unary_minus_identifier(self):
+        # -x
+        tokens = [MINUS, IDENT("x"), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == UnaryExpr("-", Identifier("x"))
+
+    def test_parse_double_negation(self):
+        # --5
+        tokens = [MINUS, MINUS, INT(5), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == UnaryExpr("-", UnaryExpr("-", IntLiteral(5)))
+
+    def test_parse_unary_in_binary(self):
+        # 5 + -3
+        tokens = [INT(5), PLUS, MINUS, INT(3), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr("+", IntLiteral(5), UnaryExpr("-", IntLiteral(3)))
+
+    def test_parse_unary_mul_precedence(self):
+        # -5 * 3 should be (-5) * 3, not -(5 * 3)
+        tokens = [MINUS, INT(5), STAR, INT(3), EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == BinaryExpr("*", UnaryExpr("-", IntLiteral(5)), IntLiteral(3))
+
+    def test_parse_unary_paren(self):
+        # -(1 + 2)
+        tokens = [MINUS, LPAREN, INT(1), PLUS, INT(2), RPAREN, EOF]
+        expr = Parser(tokens).parse_expression()
+        assert expr == UnaryExpr("-", BinaryExpr("+", IntLiteral(1), IntLiteral(2)))
 
 
 # =============================================================================
