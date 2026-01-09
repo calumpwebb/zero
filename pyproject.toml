@@ -23,3 +23,14 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["zero", "main.py"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # isort
+    "PLC0415" # import-outside-top-level
+]
