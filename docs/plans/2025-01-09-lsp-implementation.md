@@ -10,7 +10,9 @@
 
 ---
 
-## Task 1: Add Span Dataclass
+## Wave 1: AST Foundation
+
+### Task 1: Add Span Dataclass
 
 **Files:**
 - Modify: `zero/ast.py`
@@ -74,7 +76,7 @@ git commit -m "feat(ast): add Span dataclass for source positions"
 
 ---
 
-## Task 2: Add Node Base Class
+### Task 2: Add Node Base Class
 
 **Files:**
 - Modify: `zero/ast.py`
@@ -154,7 +156,7 @@ git commit -m "feat(ast): add Node base class with optional span"
 
 ---
 
-## Task 3: Update All AST Nodes to Inherit from Node
+### Task 3: Update All AST Nodes to Inherit from Node
 
 **Files:**
 - Modify: `zero/ast.py`
@@ -352,7 +354,16 @@ git commit -m "refactor(ast): update all nodes to inherit from Node base class"
 
 ---
 
-## Task 4: Add Position Tracking to Token
+**Wave 1 Review Checkpoint**
+
+Run: `python -m pytest -v`
+Expected: All tests PASS
+
+---
+
+## Wave 2: Position Tracking (Parallel)
+
+### Task 4: Add Position Tracking to Token (Agent A)
 
 **Files:**
 - Modify: `zero/lexer.py`
@@ -589,13 +600,45 @@ git commit -m "feat(lexer): add line/column tracking to tokens"
 
 ---
 
-## Task 5: Add Span Validation to Parser
+### Task 5: Install LSP Dependencies (Agent B - Parallel)
 
 **Files:**
-- Modify: `zero/parser.py`
-- Test: `tests/test_parser.py`
+- Modify: `pyproject.toml`
 
-**Step 1: Write failing test for span validation**
+**Step 1: Add pygls dependency**
+
+Run: `uv add pygls lsprotocol`
+
+**Step 2: Verify installation**
+
+Run: `python -c "import pygls; import lsprotocol; print('OK')"`
+Expected: OK
+
+**Step 3: Commit**
+
+```bash
+git add pyproject.toml uv.lock
+git commit -m "chore: add pygls and lsprotocol dependencies"
+```
+
+---
+
+**Wave 2 Review Checkpoint**
+
+Run: `python -m pytest -v`
+Expected: All tests PASS
+
+---
+
+## Wave 3: Parser Spans
+
+### Task 6: Write Parser Span Tests (TDD - Tests First!)
+
+**Files:**
+- Modify: `tests/test_parser.py`
+- Modify: `zero/parser.py`
+
+**Step 1: Write ALL span tests first (they will fail)**
 
 Add to `tests/test_parser.py`:
 
@@ -620,12 +663,47 @@ class TestSpanValidation:
 
         with pytest.raises(AssertionError, match="missing span"):
             _validate_spans(program)
+
+
+class TestParserSpans:
+    def test_function_span_points_to_name(self):
+        from zero.lexer import tokenize
+        ast = parse(tokenize("fn main() {}"))
+        func = ast.functions[0]
+        # "main" starts at column 4
+        assert func.span.start_line == 1
+        assert func.span.start_column == 4
+
+    def test_call_span(self):
+        from zero.lexer import tokenize
+        ast = parse(tokenize("fn main() { foo() }"))
+        call = ast.functions[0].body[0].expr
+        assert call.span.start_line == 1
+        assert call.span.start_column == 13
+
+    def test_int_literal_span(self):
+        from zero.lexer import tokenize
+        ast = parse(tokenize("fn main() { return 42 }"))
+        ret = ast.functions[0].body[0]
+        assert ret.expr.span.start_column == 20
+
+    def test_multiline_spans(self):
+        from zero.lexer import tokenize
+        source = """fn main() {
+  return 1
+}"""
+        ast = parse(tokenize(source))
+        ret = ast.functions[0].body[0]
+        assert ret.span.start_line == 2
 ```
 
-**Step 2: Run test to verify it fails**
+**Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_parser.py::TestSpanValidation -v`
-Expected: FAIL with "cannot import name '_validate_spans'" or span is None
+Expected: FAIL (cannot import _validate_spans, span is None)
+
+Run: `python -m pytest tests/test_parser.py::TestParserSpans -v`
+Expected: FAIL (spans are None)
 
 **Step 3: Add _validate_spans function**
 
@@ -653,7 +731,7 @@ def _validate_spans(node):
             _validate_spans(value)
 ```
 
-**Step 4: Run validation test - first part should still fail**
+**Step 4: Run validation test - second test should pass now**
 
 Run: `python -m pytest tests/test_parser.py::TestSpanValidation::test_validation_catches_missing_span -v`
 Expected: PASS
@@ -661,21 +739,24 @@ Expected: PASS
 Run: `python -m pytest tests/test_parser.py::TestSpanValidation::test_parser_validates_spans_on_output -v`
 Expected: FAIL (parser not attaching spans yet)
 
-**Step 5: Commit validation function**
+Run: `python -m pytest tests/test_parser.py::TestParserSpans -v`
+Expected: FAIL (spans are None)
+
+**Step 5: Commit tests and validation function**
 
 ```bash
 git add zero/parser.py tests/test_parser.py
-git commit -m "feat(parser): add _validate_spans function"
+git commit -m "test(parser): add span validation and position tests (TDD - red phase)"
 ```
 
 ---
 
-## Task 6: Update Parser to Attach Spans
+### Task 7: Implement Parser Span Attachment (Make Tests Green)
 
 **Files:**
 - Modify: `zero/parser.py`
 
-**Step 1: Update Parser to use token positions for spans**
+**Step 1: Update Parser to attach spans to AST nodes**
 
 This is a larger change. Update `zero/parser.py` to attach spans to AST nodes:
 
@@ -725,8 +806,6 @@ def _validate_spans(node):
 
 def _make_span(token: Token) -> Span:
     """Create a span from a single token."""
-    # For simplicity, span covers just the token
-    # End column is start + length of token (approximation)
     return Span(token.line, token.column, token.line, token.column)
 
 
@@ -883,7 +962,7 @@ class Parser:
 
         if token.type == TokenType.IDENT:
             self.advance()
-            return Identifier(token.name if hasattr(token, 'name') else token.value, span=_make_span(token))
+            return Identifier(token.value, span=_make_span(token))
 
         if self.match(TokenType.LPAREN):
             expr = self.parse_expression()
@@ -1022,170 +1101,46 @@ def parse(tokens):
     return program
 ```
 
-**Step 2: Run all tests**
+**Step 2: Run all span tests - should pass now**
 
-Run: `python -m pytest -v`
-Expected: All tests PASS (existing tests should still work, validation test should now pass)
-
-**Step 3: Commit**
-
-```bash
-git add zero/parser.py
-git commit -m "feat(parser): attach spans to all AST nodes"
-```
-
----
-
-## Task 7: Add Parser Span Tests
-
-**Files:**
-- Modify: `tests/test_parser.py`
-
-**Step 1: Add specific span tests**
-
-Add to `tests/test_parser.py`:
-
-```python
-class TestParserSpans:
-    def test_function_span_points_to_name(self):
-        from zero.lexer import tokenize
-        ast = parse(tokenize("fn main() {}"))
-        func = ast.functions[0]
-        # "main" starts at column 4
-        assert func.span.start_line == 1
-        assert func.span.start_column == 4
-
-    def test_call_span(self):
-        from zero.lexer import tokenize
-        ast = parse(tokenize("fn main() { foo() }"))
-        call = ast.functions[0].body[0].expr
-        assert call.span.start_line == 1
-        assert call.span.start_column == 13
-
-    def test_int_literal_span(self):
-        from zero.lexer import tokenize
-        ast = parse(tokenize("fn main() { return 42 }"))
-        ret = ast.functions[0].body[0]
-        assert ret.expr.span.start_column == 20
-
-    def test_multiline_spans(self):
-        from zero.lexer import tokenize
-        source = """fn main() {
-  return 1
-}"""
-        ast = parse(tokenize(source))
-        ret = ast.functions[0].body[0]
-        assert ret.span.start_line == 2
-```
-
-**Step 2: Run tests**
+Run: `python -m pytest tests/test_parser.py::TestSpanValidation -v`
+Expected: PASS
 
 Run: `python -m pytest tests/test_parser.py::TestParserSpans -v`
 Expected: PASS
 
-**Step 3: Commit**
+**Step 3: Run all tests to check for regressions**
+
+Run: `python -m pytest -v`
+Expected: All tests PASS
+
+**Step 4: Commit**
 
 ```bash
-git add tests/test_parser.py
-git commit -m "test(parser): add span position tests"
+git add zero/parser.py
+git commit -m "feat(parser): attach spans to all AST nodes (TDD - green phase)"
 ```
 
 ---
 
-## Task 8: Install LSP Dependencies
+**Wave 3 Review Checkpoint**
 
-**Files:**
-- Modify: `pyproject.toml`
-
-**Step 1: Add pygls dependency**
-
-Run: `uv add pygls lsprotocol`
-
-**Step 2: Verify installation**
-
-Run: `python -c "import pygls; import lsprotocol; print('OK')"`
-Expected: OK
-
-**Step 3: Commit**
-
-```bash
-git add pyproject.toml uv.lock
-git commit -m "chore: add pygls and lsprotocol dependencies"
-```
+Run: `python -m pytest -v`
+Expected: All tests PASS
 
 ---
 
-## Task 9: Create LSP Server Skeleton
+## Wave 4: LSP Core (Parallel)
+
+### Task 8: Create LSP Server Skeleton + Diagnostics (Agent A)
 
 **Files:**
 - Create: `zero/lsp/server.py`
-
-**Step 1: Create the LSP server**
-
-Create `zero/lsp/server.py`:
-
-```python
-from pygls.server import LanguageServer
-from lsprotocol import types
-
-server = LanguageServer("zero-lsp", "0.1.0")
-
-
-@server.feature(types.TEXT_DOCUMENT_DID_OPEN)
-def did_open(params: types.DidOpenTextDocumentParams):
-    """Handle document open."""
-    _publish_diagnostics(params.text_document.uri, params.text_document.text)
-
-
-@server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
-def did_change(params: types.DidChangeTextDocumentParams):
-    """Handle document change."""
-    text = params.content_changes[0].text
-    _publish_diagnostics(params.text_document.uri, text)
-
-
-def _publish_diagnostics(uri: str, source: str):
-    """Parse source and publish diagnostics."""
-    from zero.lsp.features import get_diagnostics
-
-    diagnostics = get_diagnostics(source)
-    server.publish_diagnostics(uri, diagnostics)
-
-
-def main():
-    server.start_io()
-
-
-if __name__ == "__main__":
-    main()
-```
-
-**Step 2: Create `__main__.py` for module execution**
-
-Create `zero/lsp/__main__.py`:
-
-```python
-from zero.lsp.server import main
-
-main()
-```
-
-**Step 3: Commit**
-
-```bash
-git add zero/lsp/server.py zero/lsp/__main__.py
-git commit -m "feat(lsp): add LSP server skeleton"
-```
-
----
-
-## Task 10: Implement get_diagnostics
-
-**Files:**
+- Create: `zero/lsp/__main__.py`
 - Create: `zero/lsp/features.py`
 - Create: `tests/test_lsp_diagnostics.py`
 
-**Step 1: Write failing tests**
+**Step 1: Write ALL diagnostics tests first (including resilience)**
 
 Create `tests/test_lsp_diagnostics.py`:
 
@@ -1218,6 +1173,36 @@ class TestDiagnostics:
         diags = get_diagnostics("fn main() { return x }")
         assert len(diags) == 1
         assert "undefined" in diags[0].message.lower()
+
+
+class TestResilience:
+    def test_empty_source(self):
+        """Empty source should produce error, not crash."""
+        diags = get_diagnostics("")
+        assert len(diags) >= 1
+
+    def test_binary_garbage(self):
+        """Binary garbage should produce error, not crash."""
+        diags = get_diagnostics("\x00\x01\x02")
+        assert len(diags) >= 1
+
+    def test_unexpected_error_caught(self, monkeypatch):
+        """Unexpected errors should be caught and reported."""
+        def explode(*args):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr("zero.lsp.features.tokenize", explode)
+
+        diags = get_diagnostics("fn main() {}")
+        assert len(diags) == 1
+        assert "Internal error" in diags[0].message
+
+    def test_very_long_source(self):
+        """Long source should not crash."""
+        source = "fn main() { " + "x " * 10000 + "}"
+        diags = get_diagnostics(source)
+        # Should either parse or error, not crash
+        assert isinstance(diags, list)
 ```
 
 **Step 2: Run test to verify it fails**
@@ -1225,7 +1210,7 @@ class TestDiagnostics:
 Run: `python -m pytest tests/test_lsp_diagnostics.py -v`
 Expected: FAIL with "No module named 'zero.lsp.features'"
 
-**Step 3: Implement get_diagnostics**
+**Step 3: Implement get_diagnostics with error wrapping**
 
 Create `zero/lsp/features.py`:
 
@@ -1286,7 +1271,6 @@ def _get_diagnostics_inner(source: str) -> list[types.Diagnostic]:
 
 def _make_diagnostic(message: str) -> types.Diagnostic:
     """Create a diagnostic from an error message."""
-    # TODO: Extract position from error message when available
     return types.Diagnostic(
         range=types.Range(
             start=types.Position(line=0, character=0),
@@ -1302,75 +1286,64 @@ def _make_diagnostic(message: str) -> types.Diagnostic:
 Run: `python -m pytest tests/test_lsp_diagnostics.py -v`
 Expected: PASS
 
-**Step 5: Commit**
+**Step 5: Create server skeleton**
 
-```bash
-git add zero/lsp/features.py tests/test_lsp_diagnostics.py
-git commit -m "feat(lsp): implement get_diagnostics"
-```
-
----
-
-## Task 11: Add Resilience Tests
-
-**Files:**
-- Create: `tests/test_lsp_resilience.py`
-
-**Step 1: Write resilience tests**
-
-Create `tests/test_lsp_resilience.py`:
+Create `zero/lsp/server.py`:
 
 ```python
-import pytest
-from zero.lsp.features import get_diagnostics
+from pygls.server import LanguageServer
+from lsprotocol import types
+
+server = LanguageServer("zero-lsp", "0.1.0")
 
 
-class TestResilience:
-    def test_empty_source(self):
-        """Empty source should produce error, not crash."""
-        diags = get_diagnostics("")
-        assert len(diags) >= 1
+@server.feature(types.TEXT_DOCUMENT_DID_OPEN)
+def did_open(params: types.DidOpenTextDocumentParams):
+    """Handle document open."""
+    _publish_diagnostics(params.text_document.uri, params.text_document.text)
 
-    def test_binary_garbage(self):
-        """Binary garbage should produce error, not crash."""
-        diags = get_diagnostics("\x00\x01\x02")
-        assert len(diags) >= 1
 
-    def test_unexpected_error_caught(self, monkeypatch):
-        """Unexpected errors should be caught and reported."""
+@server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
+def did_change(params: types.DidChangeTextDocumentParams):
+    """Handle document change."""
+    text = params.content_changes[0].text
+    _publish_diagnostics(params.text_document.uri, text)
 
-        def explode(*args):
-            raise RuntimeError("boom")
 
-        monkeypatch.setattr("zero.lsp.features.tokenize", explode)
+def _publish_diagnostics(uri: str, source: str):
+    """Parse source and publish diagnostics."""
+    from zero.lsp.features import get_diagnostics
 
-        diags = get_diagnostics("fn main() {}")
-        assert len(diags) == 1
-        assert "Internal error" in diags[0].message
+    diagnostics = get_diagnostics(source)
+    server.publish_diagnostics(uri, diagnostics)
 
-    def test_very_long_source(self):
-        """Long source should not crash."""
-        source = "fn main() { " + "x " * 10000 + "}"
-        diags = get_diagnostics(source)
-        # Should either parse or error, not crash
-        assert isinstance(diags, list)
+
+def main():
+    server.start_io()
+
+
+if __name__ == "__main__":
+    main()
 ```
 
-**Step 2: Run tests**
+Create `zero/lsp/__main__.py`:
 
-Run: `python -m pytest tests/test_lsp_resilience.py -v`
-Expected: PASS
+```python
+from zero.lsp.server import main
 
-**Step 3: Commit**
+main()
+```
+
+**Step 6: Commit**
 
 ```bash
-git add tests/test_lsp_resilience.py
-git commit -m "test(lsp): add resilience tests"
+git add zero/lsp/ tests/test_lsp_diagnostics.py
+git commit -m "feat(lsp): add diagnostics with resilience (TDD)"
 ```
 
 ---
 
-## Task 12: Implement find_node_at_position
+### Task 9: Implement find_node_at_position (Agent B - Parallel)
 
 **Files:**
 - Modify: `zero/lsp/features.py`
@@ -1504,18 +1477,77 @@ Expected: PASS
 
 ```bash
 git add zero/lsp/features.py tests/test_lsp_find.py
-git commit -m "feat(lsp): implement find_node_at_position"
+git commit -m "feat(lsp): implement find_node_at_position (TDD)"
 ```
 
 ---
 
-## Task 13: Implement Go-to-Definition
+**Wave 4 Review Checkpoint**
+
+Run: `python -m pytest -v`
+Expected: All tests PASS
+
+---
+
+## Wave 5: LSP Features (Parallel)
+
+### Task 10: Implement Go-to-Definition (Agent A)
 
 **Files:**
-- Modify: `zero/lsp/server.py`
+- Create: `tests/test_lsp_goto.py`
 - Modify: `zero/lsp/features.py`
+- Modify: `zero/lsp/server.py`
 
-**Step 1: Add find_function helper**
+**Step 1: Write failing tests first**
+
+Create `tests/test_lsp_goto.py`:
+
+```python
+import pytest
+from zero.lexer import tokenize
+from zero.parser import parse
+from zero.lsp.features import find_function, span_to_range
+from zero.ast import Span
+from lsprotocol import types
+
+
+class TestFindFunction:
+    def test_find_existing_function(self):
+        ast = parse(tokenize("fn foo() {} fn main() {}"))
+        func = find_function(ast, "foo")
+        assert func is not None
+        assert func.name == "foo"
+
+    def test_find_nonexistent_function(self):
+        ast = parse(tokenize("fn main() {}"))
+        func = find_function(ast, "bar")
+        assert func is None
+
+
+class TestSpanToRange:
+    def test_converts_1_indexed_to_0_indexed(self):
+        span = Span(1, 1, 1, 5)
+        range_ = span_to_range(span)
+        assert range_.start.line == 0
+        assert range_.start.character == 0
+        assert range_.end.line == 0
+        assert range_.end.character == 4
+
+    def test_multiline_span(self):
+        span = Span(2, 10, 5, 3)
+        range_ = span_to_range(span)
+        assert range_.start.line == 1
+        assert range_.start.character == 9
+        assert range_.end.line == 4
+        assert range_.end.character == 2
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `python -m pytest tests/test_lsp_goto.py -v`
+Expected: FAIL with "cannot import name 'find_function'"
+
+**Step 3: Implement helpers**
 
 Add to `zero/lsp/features.py`:
 
@@ -1539,7 +1571,12 @@ def span_to_range(span: Span) -> types.Range:
     )
 ```
 
-**Step 2: Add go-to-definition to server**
+**Step 4: Run tests**
+
+Run: `python -m pytest tests/test_lsp_goto.py -v`
+Expected: PASS
+
+**Step 5: Add go-to-definition to server**
 
 Add to `zero/lsp/server.py`:
 
@@ -1579,27 +1616,58 @@ def goto_definition(params: types.DefinitionParams):
         return None
 ```
 
-**Step 3: Run all tests**
-
-Run: `python -m pytest -v`
-Expected: All PASS
-
-**Step 4: Commit**
+**Step 6: Commit**
 
 ```bash
-git add zero/lsp/server.py zero/lsp/features.py
-git commit -m "feat(lsp): implement go-to-definition"
+git add zero/lsp/server.py zero/lsp/features.py tests/test_lsp_goto.py
+git commit -m "feat(lsp): implement go-to-definition (TDD)"
 ```
 
 ---
 
-## Task 14: Implement Hover
+### Task 11: Implement Hover (Agent B - Parallel)
 
 **Files:**
-- Modify: `zero/lsp/server.py`
+- Create: `tests/test_lsp_hover.py`
 - Modify: `zero/lsp/features.py`
+- Modify: `zero/lsp/server.py`
 
-**Step 1: Add format_signature helper**
+**Step 1: Write failing tests first**
+
+Create `tests/test_lsp_hover.py`:
+
+```python
+import pytest
+from zero.lexer import tokenize
+from zero.parser import parse
+from zero.lsp.features import format_signature
+from zero.ast import Function, Param
+
+
+class TestFormatSignature:
+    def test_no_params_no_return(self):
+        func = Function("main", [], None, [])
+        assert format_signature(func) == "fn main()"
+
+    def test_with_params(self):
+        func = Function("add", [Param("a", "int"), Param("b", "int")], None, [])
+        assert format_signature(func) == "fn add(a: int, b: int)"
+
+    def test_with_return_type(self):
+        func = Function("get", [], "int", [])
+        assert format_signature(func) == "fn get(): int"
+
+    def test_full_signature(self):
+        func = Function("add", [Param("a", "int"), Param("b", "int")], "int", [])
+        assert format_signature(func) == "fn add(a: int, b: int): int"
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `python -m pytest tests/test_lsp_hover.py -v`
+Expected: FAIL with "cannot import name 'format_signature'"
+
+**Step 3: Implement format_signature**
 
 Add to `zero/lsp/features.py`:
 
@@ -1612,7 +1680,12 @@ def format_signature(func: Function) -> str:
     return f"fn {func.name}({params})"
 ```
 
-**Step 2: Add hover to server**
+**Step 4: Run tests**
+
+Run: `python -m pytest tests/test_lsp_hover.py -v`
+Expected: PASS
+
+**Step 5: Add hover to server**
 
 Add to `zero/lsp/server.py`:
 
@@ -1624,7 +1697,7 @@ def hover(params: types.HoverParams):
         from zero.lexer import tokenize
         from zero.parser import parse
         from zero.lsp.features import find_node_at_position, find_function, format_signature
-        from zero.ast import Call, Identifier
+        from zero.ast import Call
         from zero.builtins import BUILTIN_TYPES
 
         doc = server.workspace.get_document(params.text_document.uri)
@@ -1653,29 +1726,28 @@ def hover(params: types.HoverParams):
         return None
 ```
 
-**Step 3: Run all tests**
-
-Run: `python -m pytest -v`
-Expected: All PASS
-
-**Step 4: Commit**
+**Step 6: Commit**
 
 ```bash
-git add zero/lsp/server.py zero/lsp/features.py
-git commit -m "feat(lsp): implement hover"
+git add zero/lsp/server.py zero/lsp/features.py tests/test_lsp_hover.py
+git commit -m "feat(lsp): implement hover (TDD)"
 ```
 
 ---
 
-## Task 15: Final Integration Test
+**Wave 5 Review Checkpoint**
 
-**Files:**
-- Run manual test
+Run: `python -m pytest -v`
+Expected: All tests PASS
+
+---
+
+## Task 12: Final Integration Test
 
 **Step 1: Test LSP server starts**
 
-Run: `echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}' | python -m zero.lsp`
-Expected: JSON response with server capabilities (may need to ctrl+c after)
+Run: `echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}' | timeout 2 python -m zero.lsp || true`
+Expected: JSON response with server capabilities
 
 **Step 2: Run full test suite**
 
@@ -1692,6 +1764,21 @@ git commit -m "feat(lsp): complete v1 LSP server implementation"
 ---
 
 ## Summary
+
+**12 tasks in 5 waves:**
+- Wave 1: AST Foundation (Tasks 1-3)
+- Wave 2: Position Tracking (Tasks 4-5, parallel)
+- Wave 3: Parser Spans (Tasks 6-7)
+- Wave 4: LSP Core (Tasks 8-9, parallel)
+- Wave 5: LSP Features (Tasks 10-11, parallel)
+- Final: Integration Test (Task 12)
+
+**All tasks follow TDD:**
+1. Write failing tests
+2. Run tests to confirm failure
+3. Implement minimal code
+4. Run tests to confirm pass
+5. Commit
 
 After completing all tasks, Zero will have:
 - Position tracking in lexer (line/column on tokens)
