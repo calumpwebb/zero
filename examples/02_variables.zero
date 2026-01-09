@@ -1,0 +1,19 @@
+# Variables and types in Zero
+
+fn main() {
+    # Integer variables
+    age: int = 25
+    print(age)
+
+    # String variables
+    name: str = "Zero"
+    print(name)
+
+    # Boolean variables
+    active: bool = true
+    print(active)
+
+    # Reassignment
+    age = 26
+    print(age)
+}

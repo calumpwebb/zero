@@ -1,0 +1,23 @@
+# Functions in Zero
+
+fn add(a: int, b: int): int {
+    return a + b
+}
+
+fn greet(name: str): str {
+    return "Hello, " + name + "!"
+}
+
+fn is_positive(x: int): bool {
+    if (x > 0) {
+        return true
+    }
+    return false
+}
+
+fn main() {
+    print(add(5, 3))        # 8
+    print(greet("World"))   # Hello, World!
+    print(is_positive(10))  # true
+    print(is_positive(-5))  # false
+}

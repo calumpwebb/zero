@@ -1,0 +1,5 @@
+# Your first Zero program
+
+fn main() {
+    print("Hello, World!")
+}

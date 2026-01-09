@@ -1,0 +1,27 @@
+# Conditionals in Zero
+
+fn main() {
+    x: int = 5
+
+    # Basic if/else
+    if (x > 0) {
+        print("positive")
+    } else {
+        print("not positive")
+    }
+
+    # All comparison operators
+    print(x == 5)   # true
+    print(x != 3)   # true
+    print(x < 10)   # true
+    print(x > 2)    # true
+    print(x <= 5)   # true
+    print(x >= 5)   # true
+
+    # Nested conditionals
+    if (x > 0) {
+        if (x < 10) {
+            print("single digit positive")
+        }
+    }
+}

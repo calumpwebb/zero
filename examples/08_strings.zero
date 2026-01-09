@@ -1,0 +1,18 @@
+# Strings in Zero
+
+fn make_greeting(name: str): str {
+    return "Welcome, " + name + "!"
+}
+
+fn main() {
+    # String literals
+    greeting: str = "Hello"
+    name: str = "Zero"
+
+    # Concatenation
+    message: str = greeting + ", " + name + "!"
+    print(message)  # Hello, Zero!
+
+    # Strings in functions
+    print(make_greeting("World"))
+}
