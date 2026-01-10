@@ -66,6 +66,13 @@ Zero includes a Language Server Protocol implementation for editor integration.
 
 **Editor Setup:**
 
+VS Code:
+```bash
+cd zero-vscode && npm install
+ln -s "$(pwd)/zero-vscode" ~/.vscode/extensions/zero-language
+# Reload VS Code
+```
+
 Neovim (with nvim-lspconfig):
 ```lua
 require('lspconfig').zero.setup {

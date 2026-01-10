@@ -30,6 +30,10 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["zero", "main.py", "examples.py"]
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
 [tool.ruff]
 line-length = 100
 

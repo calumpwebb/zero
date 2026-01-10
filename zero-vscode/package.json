@@ -1,12 +1,16 @@
 {
   "name": "zero-language",
   "displayName": "Zero Language",
-  "description": "Syntax highlighting for the Zero programming language",
-  "version": "0.1.0",
+  "description": "Language support for the Zero programming language",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.70.0"
   },
   "categories": ["Programming Languages"],
+  "activationEvents": [
+    "onLanguage:zero"
+  ],
+  "main": "./extension.js",
   "contributes": {
     "languages": [
       {
@@ -22,6 +26,25 @@
         "scopeName": "source.zero",
         "path": "./syntaxes/zero.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Zero",
+      "properties": {
+        "zero.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Zero language server"
+        },
+        "zero.lsp.command": {
+          "type": "array",
+          "default": ["uv", "run", "python", "-m", "zero.lsp"],
+          "description": "Command to start the language server"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
   }
 }
