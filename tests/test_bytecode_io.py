@@ -1,6 +1,9 @@
 import tempfile
 from pathlib import Path
 
+import msgpack
+import pytest
+
 from zero.bytecode import Chunk, CompiledProgram, save_program, load_program
 
 
@@ -25,3 +28,20 @@ def test_save_load_roundtrip():
         assert load_chunk.code == orig_chunk.code
         assert load_chunk.constants == orig_chunk.constants
         assert load_chunk.arity == orig_chunk.arity
+
+
+def test_version_mismatch_raises():
+    """Wrong bytecode version fails with clear error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "old.zrc"
+
+        # Write a file with wrong version
+        data = {
+            "version": 999,
+            "program": {"chunks": [], "function_index": {}},
+        }
+        with open(path, "wb") as f:
+            msgpack.pack(data, f)
+
+        with pytest.raises(ValueError, match="version mismatch"):
+            load_program(path)
