@@ -60,3 +60,13 @@ def test_load_oversized_file_raises():
             load_program(path)
 
 
+def test_load_corrupt_file_raises():
+    """Invalid msgpack fails gracefully."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "corrupt.zrc"
+
+        with open(path, "wb") as f:
+            f.write(b"not valid msgpack data!!!")
+
+        with pytest.raises(Exception):  # msgpack.UnpackException or similar
+            load_program(path)
