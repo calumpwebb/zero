@@ -4,10 +4,16 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "lsprotocol>=2025.0.0",
+    "msgpack>=1.0.0",
+    "pygls>=2.0.0",
+    "typer>=0.9.0",
+]
 
 [project.scripts]
 zero = "main:main"
+examples = "examples:main"
 
 [tool.uv]
 package = true
@@ -22,7 +28,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["zero", "main.py"]
+packages = ["zero", "main.py", "examples.py"]
 
 [tool.ruff]
 line-length = 100
