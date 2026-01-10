@@ -11,17 +11,19 @@ uv sync
 # Run all tests
 python -m pytest -v
 
-# Run single test file
-python -m pytest tests/test_lexer.py -v
-
-# Run single test
-python -m pytest tests/test_lexer.py::test_tokenize_integer -v
-
 # Execute a Zero program
-python main.py examples/add.zero
+zero run examples/01_hello.zr
 
-# Disassemble bytecode (view compiled output)
-python main.py -d examples/add.zero
+# Compile to bytecode
+zero build examples/01_hello.zr          # → examples/.zr-cache/01_hello.zrc
+zero build examples/01_hello.zr -o out.zrc  # → out.zrc
+
+# Run compiled bytecode
+zero run out.zrc
+
+# Disassemble (view bytecode)
+zero disasm examples/01_hello.zr
+zero disasm out.zrc
 ```
 
 ## Architecture
@@ -29,11 +31,11 @@ python main.py -d examples/add.zero
 Zero is a minimalist compiled language with a classic pipeline: **Source → Lexer → Parser → Compiler → VM**
 
 ```
-Source Code (.zero)
+Source Code (.zr)
        ↓
-   Lexer (lexer.py) → Tokens
+   Lexer (lexer.py) → Tokens with line/column
        ↓
-   Parser (parser.py) → AST (ast.py)
+   Parser (parser.py) → AST with Span (ast.py)
        ↓
    Compiler (compiler.py) → Bytecode (bytecode.py)
        ↓
@@ -52,6 +54,31 @@ Source Code (.zero)
 ### Language Features
 
 Currently supports: integer literals, function definitions with typed parameters, function calls, addition (`+`), and `print()` builtin.
+
+## LSP Server
+
+Zero includes a Language Server Protocol implementation for editor integration.
+
+**Features:**
+- Diagnostics (parse errors, semantic errors)
+- Go-to-definition (jump to function definitions)
+- Hover (show function signatures)
+
+**Editor Setup:**
+
+Neovim (with nvim-lspconfig):
+```lua
+require('lspconfig').zero.setup {
+    cmd = { "uv", "run", "python", "-m", "zero.lsp" }
+}
+```
+
+Helix (`languages.toml`):
+```toml
+[[language]]
+name = "zero"
+language-server = { command = "uv", args = ["run", "python", "-m", "zero.lsp"] }
+```
 
 ## Conventions
 
