@@ -1,5 +1,12 @@
+import dataclasses
 from dataclasses import dataclass
 from enum import IntEnum
+from pathlib import Path
+
+import msgpack
+
+BYTECODE_VERSION = 1
+MAX_BYTECODE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 class Op(IntEnum):
@@ -56,3 +63,35 @@ class Chunk:
 class CompiledProgram:
     chunks: list[Chunk]
     function_index: dict[str, int]  # Function name -> chunk index
+
+
+def save_program(program: CompiledProgram, path: Path) -> None:
+    """Serialize compiled program to bytecode file."""
+    data = {
+        "version": BYTECODE_VERSION,
+        "program": dataclasses.asdict(program),
+    }
+    with open(path, "wb") as f:
+        msgpack.pack(data, f, use_bin_type=True)
+
+
+def load_program(path: Path) -> CompiledProgram:
+    """Load compiled program from bytecode file."""
+    file_size = path.stat().st_size
+    if file_size > MAX_BYTECODE_SIZE:
+        raise ValueError(f"Bytecode file too large: {file_size} bytes (max {MAX_BYTECODE_SIZE})")
+
+    with open(path, "rb") as f:
+        data = msgpack.unpack(f, raw=False, strict_map_key=False)
+
+    if data["version"] != BYTECODE_VERSION:
+        raise ValueError(
+            f"Bytecode version mismatch: file has v{data['version']}, "
+            f"VM expects v{BYTECODE_VERSION}. Recompile your source."
+        )
+
+    p = data["program"]
+    return CompiledProgram(
+        chunks=[Chunk(**c) for c in p["chunks"]],
+        function_index=p["function_index"],
+    )
