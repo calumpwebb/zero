@@ -57,7 +57,12 @@ class Function(Node):
     params: list
     return_type: str
     body: list
+    name_span: Span | None = field(default=None, kw_only=True)  # span of just the identifier
 ```
+
+Nodes have two spans:
+- `span` - the full node (entire function definition, full call expression)
+- `name_span` - just the identifier (for highlighting on hover, precise navigation)
 
 ### Token positions
 
@@ -160,19 +165,80 @@ def get_diagnostics(source: str) -> list[types.Diagnostic]:
         return [make_diagnostic(e)]
 
     try:
-        analyze(ast)
+        SemanticAnalyzer(ast).analyze()
     except SemanticError as e:
         return [make_diagnostic(e)]
 
     return diagnostics
 
-def find_node_at_position(ast, line, column):
-    """Walk AST, find node whose span contains the position."""
-    ...
+def find_node_at_position(ast: Program, line: int, column: int) -> Node | None:
+    """Walk AST, return the innermost node whose span contains the position.
 
-def find_function(ast, name):
+    Algorithm:
+    1. Traverse all nodes depth-first
+    2. Collect nodes whose span contains (line, column)
+    3. Return the innermost (most deeply nested) match
+
+    Returns None if position is outside all nodes (whitespace, comments, etc).
+    """
+    def contains(span: Span, line: int, col: int) -> bool:
+        if span is None:
+            return False
+        if line < span.start_line or line > span.end_line:
+            return False
+        if line == span.start_line and col < span.start_column:
+            return False
+        if line == span.end_line and col > span.end_column:
+            return False
+        return True
+
+    def walk(node: Node) -> Node | None:
+        """Return innermost matching node, or None."""
+        if not hasattr(node, '__dataclass_fields__'):
+            return None
+
+        # Check children first (depth-first, find innermost)
+        for field in fields(node):
+            value = getattr(node, field.name)
+            if isinstance(value, list):
+                for item in value:
+                    result = walk(item)
+                    if result is not None:
+                        return result
+            elif hasattr(value, '__dataclass_fields__'):
+                result = walk(value)
+                if result is not None:
+                    return result
+
+        # No child matched, check self
+        if hasattr(node, 'span') and contains(node.span, line, column):
+            return node
+        return None
+
+    return walk(ast)
+
+def find_definition(ast: Program, node: Node) -> Node | None:
+    """Find the definition for a reference node.
+
+    Handles:
+    - Call → Function definition
+    - Identifier → Parameter or local variable (future)
+
+    Returns None if no definition found (e.g., builtin like print).
+    """
+    if isinstance(node, Call):
+        return find_function(ast, node.name)
+    if isinstance(node, Identifier):
+        # Future: look up in scope chain
+        return None
+    return None
+
+def find_function(ast: Program, name: str) -> Function | None:
     """Find function definition by name."""
-    ...
+    for func in ast.functions:
+        if func.name == name:
+            return func
+    return None
 ```
 
 ### Error resilience
@@ -225,14 +291,17 @@ def goto_definition(params):
     doc = server.workspace.get_document(params.text_document.uri)
     ast = parse(tokenize(doc.source))
 
-    target = find_node_at_position(ast, params.position.line, params.position.character)
+    node = find_node_at_position(ast, params.position.line, params.position.character)
+    if node is None:
+        return None
 
-    if isinstance(target, Call):
-        func = find_function(ast, target.name)
-        if func:
-            return types.Location(uri=params.text_document.uri, range=span_to_range(func.span))
+    definition = find_definition(ast, node)
+    if definition is None:
+        return None
 
-    return None
+    # Use name_span for precise navigation to the identifier
+    target_span = getattr(definition, 'name_span', None) or definition.span
+    return types.Location(uri=params.text_document.uri, range=span_to_range(target_span))
 ```
 
 ### Hover
@@ -246,13 +315,17 @@ def hover(params):
     doc = server.workspace.get_document(params.text_document.uri)
     ast = parse(tokenize(doc.source))
 
-    target = find_node_at_position(ast, params.position.line, params.position.character)
+    node = find_node_at_position(ast, params.position.line, params.position.character)
+    if node is None:
+        return None
 
-    if isinstance(target, Call):
-        func = find_function(ast, target.name)
-        if func:
-            sig = format_signature(func)  # "fn add(a: int, b: int): int"
-            return types.Hover(contents=sig)
+    definition = find_definition(ast, node)
+    if definition is None:
+        return None
+
+    if isinstance(definition, Function):
+        sig = format_signature(definition)  # "fn add(a: int, b: int): int"
+        return types.Hover(contents=sig)
 
     return None
 ```
@@ -279,20 +352,21 @@ def test_token_positions_multiline():
 **test_parser.py** - Add span tests:
 
 ```python
-def test_function_span():
+def test_function_spans():
     ast = parse(tokenize("fn main() {}"))
     func = ast.functions[0]
-    assert func.span == Span(1, 4, 1, 8)  # "main"
+    assert func.name_span == Span(1, 4, 1, 7)  # "main" identifier only
+    assert func.span == Span(1, 1, 1, 12)      # entire "fn main() {}"
 
 def test_call_span():
     ast = parse(tokenize("fn main() { foo() }"))
     call = ast.functions[0].body[0].expr
-    assert call.span == Span(1, 13, 1, 16)  # "foo"
+    assert call.span == Span(1, 13, 1, 17)  # "foo()" - full call expression
 ```
 
 ### New LSP tests
 
-**test_lsp_find.py** - `find_node_at_position`:
+**test_lsp_find.py** - `find_node_at_position` and `find_definition`:
 
 ```python
 def test_find_call():
@@ -301,10 +375,31 @@ def test_find_call():
     assert isinstance(node, Call)
     assert node.name == "foo"
 
+def test_find_innermost_node():
+    """Position inside nested expression returns innermost node."""
+    ast = parse(tokenize("fn main() { foo(1 + 2) }"))
+    # Position on the "1" - should return IntLiteral, not the Call
+    node = find_node_at_position(ast, line=1, col=17)
+    assert isinstance(node, IntLiteral)
+    assert node.value == 1
+
 def test_position_outside_any_node():
     ast = parse(tokenize("fn main() {}"))
     node = find_node_at_position(ast, line=1, col=100)
     assert node is None
+
+def test_find_definition_call_to_function():
+    ast = parse(tokenize("fn foo() {} fn main() { foo() }"))
+    call = find_node_at_position(ast, line=1, col=25)  # the foo() call
+    definition = find_definition(ast, call)
+    assert isinstance(definition, Function)
+    assert definition.name == "foo"
+
+def test_find_definition_builtin_returns_none():
+    ast = parse(tokenize("fn main() { print(1) }"))
+    call = find_node_at_position(ast, line=1, col=13)  # print()
+    definition = find_definition(ast, call)
+    assert definition is None  # builtins have no definition in source
 ```
 
 **test_lsp_diagnostics.py** - Integration:
@@ -369,17 +464,69 @@ name = "zero"
 language-server = { command = "python", args = ["-m", "zero.lsp"] }
 ```
 
-## Implementation Order
+## Implementation Order (TDD)
 
+Each step follows red-green-refactor: write failing test, implement, refactor.
+
+### Phase 1: Position Tracking Infrastructure
+
+**Step 1: Span dataclass**
 1. Add `Span` dataclass to `ast.py`
-2. Add `Node` base class, update AST nodes to inherit
-3. Add line/column tracking to `Token` and `Lexer`
-4. Update parser to attach spans to AST nodes
-5. Add `_validate_spans()` to parser
-6. Write span tests (TDD)
-7. Create `zero/lsp/server.py` with pygls
-8. Implement `get_diagnostics()` with error wrapping
-9. Implement `find_node_at_position()` (TDD)
-10. Implement go-to-definition
-11. Implement hover
-12. Write LSP integration tests
+2. Add `Node` base class with `span: Span | None` field
+
+**Step 2: Token positions (TDD)**
+1. Write `test_token_positions_simple` and `test_token_positions_multiline` → tests fail
+2. Add `line`/`column` fields to `Token`
+3. Update `Lexer` to track line/column as it scans → tests pass
+
+**Step 3: AST spans (TDD)**
+1. Write `test_function_spans` and `test_call_span` → tests fail
+2. Update all AST nodes to inherit from `Node`
+3. Add `name_span` field to `Function`
+4. Update `Parser` to attach spans from token positions → tests pass
+
+**Step 4: Span validation**
+1. Write test that parsing produces valid spans (no None values)
+2. Add `_validate_spans()` to parser, call from `parse()`
+
+### Phase 2: LSP Core
+
+**Step 5: find_node_at_position (TDD)**
+1. Write `test_find_call`, `test_find_innermost_node`, `test_position_outside_any_node` → tests fail
+2. Implement `find_node_at_position()` in `zero/lsp/features.py` → tests pass
+
+**Step 6: find_definition (TDD)**
+1. Write `test_find_definition_call_to_function`, `test_find_definition_builtin_returns_none` → tests fail
+2. Implement `find_definition()` and `find_function()` → tests pass
+
+**Step 7: Diagnostics (TDD)**
+1. Write `test_valid_code_no_diagnostics`, `test_lexer_error`, `test_semantic_error` → tests fail
+2. Create `zero/lsp/features.py` with `get_diagnostics()`
+3. Add error wrapping for internal errors → tests pass
+
+**Step 8: Resilience (TDD)**
+1. Write `test_unexpected_error_doesnt_crash`, `test_empty_source`, `test_binary_garbage` → tests fail
+2. Add try/except wrapper returning "Internal error" diagnostic → tests pass
+
+### Phase 3: LSP Server
+
+**Step 9: Server setup**
+1. Create `zero/lsp/server.py` with pygls
+2. Wire up `did_open`/`did_change` → `publish_diagnostics`
+3. Manual test with editor
+
+**Step 10: Go-to-definition**
+1. Add `@server.feature(TEXT_DOCUMENT_DEFINITION)` handler
+2. Manual test with editor
+
+**Step 11: Hover**
+1. Add `@server.feature(TEXT_DOCUMENT_HOVER)` handler
+2. Implement `format_signature()`
+3. Manual test with editor
+
+### Phase 4: Integration Testing
+
+**Step 12: LSP integration tests**
+1. Test full round-trip: source → diagnostics
+2. Test go-to-definition returns correct location
+3. Test hover returns correct signature
