@@ -4,7 +4,7 @@ from pathlib import Path
 import msgpack
 import pytest
 
-from zero.bytecode import Chunk, CompiledProgram, save_program, load_program
+from zero.bytecode import Chunk, CompiledProgram, save_program, load_program, MAX_BYTECODE_SIZE
 
 
 def test_save_load_roundtrip():
@@ -45,3 +45,18 @@ def test_version_mismatch_raises():
 
         with pytest.raises(ValueError, match="version mismatch"):
             load_program(path)
+
+
+def test_load_oversized_file_raises():
+    """Files over 10MB rejected before parsing."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "huge.zrc"
+
+        # Create file larger than limit
+        with open(path, "wb") as f:
+            f.write(b"x" * (MAX_BYTECODE_SIZE + 1))
+
+        with pytest.raises(ValueError, match="too large"):
+            load_program(path)
+
+
