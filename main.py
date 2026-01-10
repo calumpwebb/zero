@@ -208,14 +208,9 @@ def disassemble(compiled):
 
 
 @app.callback(invoke_without_command=True)
-def main(
-    ctx: typer.Context,
-    file: Path | None = typer.Argument(None, help="File to run (.zr or .zrc)"),
-):
+def main(ctx: typer.Context):
     """The Zero programming language."""
-    if ctx.invoked_subcommand is None and file is not None:
-        run_cmd(file)
-    elif ctx.invoked_subcommand is None:
+    if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
 
 
