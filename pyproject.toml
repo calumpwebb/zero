@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-zero = "main:main"
+zero = "main:app"
 examples = "examples:main"
 
 [tool.uv]
