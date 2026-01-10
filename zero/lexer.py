@@ -41,6 +41,8 @@ class TokenType(Enum):
 class Token:
     type: TokenType
     value: object = None
+    line: int = field(default=1, compare=False)
+    column: int = field(default=1, compare=False)
 
 
 KEYWORDS = {
@@ -73,6 +75,8 @@ class Lexer:
     def __init__(self, source):
         self.source = source
         self.pos = 0
+        self.line = 1
+        self.column = 1
 
     def tokenize(self):
         tokens = []
@@ -98,7 +102,16 @@ class Lexer:
     def advance(self):
         char = self.source[self.pos]
         self.pos += 1
+        if char == "\n":
+            self.line += 1
+            self.column = 1
+        else:
+            self.column += 1
         return char
+
+    def make_token(self, token_type, value=None):
+        """Create a token with the saved start position."""
+        return Token(token_type, value, self.start_line, self.start_column)
 
     def next_token(self):
         if self.at_end():
@@ -114,6 +127,10 @@ class Lexer:
             self.skip_comment()
             return None
 
+        # Save position at start of token
+        self.start_line = self.line
+        self.start_column = self.column
+
         if char.isdigit():
             return self.read_number()
 
@@ -127,42 +144,42 @@ class Lexer:
         if char == "=" and self.peek() == "=":
             self.advance()
             self.advance()
-            return Token(TokenType.EQ)
+            return self.make_token(TokenType.EQ)
         if char == "!" and self.peek() == "=":
             self.advance()
             self.advance()
-            return Token(TokenType.NE)
+            return self.make_token(TokenType.NE)
         if char == "<" and self.peek() == "=":
             self.advance()
             self.advance()
-            return Token(TokenType.LE)
+            return self.make_token(TokenType.LE)
         if char == ">" and self.peek() == "=":
             self.advance()
             self.advance()
-            return Token(TokenType.GE)
+            return self.make_token(TokenType.GE)
         if char == "+" and self.peek() == "=":
             self.advance()
             self.advance()
-            return Token(TokenType.PLUS_EQUAL)
+            return self.make_token(TokenType.PLUS_EQUAL)
         if char == "-" and self.peek() == "=":
             self.advance()
             self.advance()
-            return Token(TokenType.MINUS_EQUAL)
+            return self.make_token(TokenType.MINUS_EQUAL)
 
         # Single-character operators
         if char == "=":
             self.advance()
-            return Token(TokenType.ASSIGN)
+            return self.make_token(TokenType.ASSIGN)
         if char == "<":
             self.advance()
-            return Token(TokenType.LT)
+            return self.make_token(TokenType.LT)
         if char == ">":
             self.advance()
-            return Token(TokenType.GT)
+            return self.make_token(TokenType.GT)
 
         if char in SYMBOLS:
             self.advance()
-            return Token(SYMBOLS[char])
+            return self.make_token(SYMBOLS[char])
 
         raise SyntaxError(f"Unexpected character: {char}")
 
@@ -177,7 +194,7 @@ class Lexer:
         value = int(digits)
         if value > 9223372036854775807:  # i64 max
             raise SyntaxError(f"Integer too large: {digits}")
-        return Token(TokenType.INT, value)
+        return self.make_token(TokenType.INT, value)
 
     def read_string(self):
         self.advance()  # consume opening "
@@ -187,15 +204,15 @@ class Lexer:
         if self.at_end():
             raise SyntaxError("Unterminated string literal")
         self.advance()  # consume closing "
-        return Token(TokenType.STRING, chars)
+        return self.make_token(TokenType.STRING, chars)
 
     def read_identifier(self):
         ident = ""
         while not self.at_end() and (self.current().isalnum() or self.current() == "_"):
             ident += self.advance()
         if ident in KEYWORDS:
-            return Token(KEYWORDS[ident])
-        return Token(TokenType.IDENT, ident)
+            return self.make_token(KEYWORDS[ident])
+        return self.make_token(TokenType.IDENT, ident)
 
 
 def tokenize(source):

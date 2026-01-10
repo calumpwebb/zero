@@ -1,41 +1,56 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
-class IntLiteral:
+class Span:
+    """Source location span for LSP features."""
+    start_line: int
+    start_column: int
+    end_line: int
+    end_column: int
+
+
+@dataclass(frozen=True)
+class Node:
+    """Base class for all AST nodes with optional span tracking."""
+    span: Span | None = field(default=None, kw_only=True, compare=False)
+
+
+@dataclass(frozen=True)
+class IntLiteral(Node):
     value: int
 
 
 @dataclass(frozen=True)
-class BoolLiteral:
+class BoolLiteral(Node):
     value: bool
 
 
 @dataclass(frozen=True)
-class StringLiteral:
+class StringLiteral(Node):
     value: str
 
 
 @dataclass(frozen=True)
-class Identifier:
+class Identifier(Node):
     name: str
 
 
 @dataclass(frozen=True)
-class BinaryExpr:
+class BinaryExpr(Node):
     op: str
     left: "Expr"
     right: "Expr"
 
 
 @dataclass(frozen=True)
-class UnaryExpr:
+class UnaryExpr(Node):
     op: str
     operand: "Expr"
 
 
 @dataclass(frozen=True)
-class Call:
+class Call(Node):
     name: str
     args: list
 
@@ -49,30 +64,30 @@ Expr = IntLiteral | BoolLiteral | StringLiteral | Identifier | BinaryExpr | Unar
 
 
 @dataclass(frozen=True)
-class ReturnStmt:
+class ReturnStmt(Node):
     expr: Expr
 
 
 @dataclass(frozen=True)
-class ExprStmt:
+class ExprStmt(Node):
     expr: Expr
 
 
 @dataclass(frozen=True)
-class VarDecl:
+class VarDecl(Node):
     name: str
     type: str
     value: "Expr"
 
 
 @dataclass(frozen=True)
-class Assignment:
+class Assignment(Node):
     name: str
     value: "Expr"
 
 
 @dataclass(frozen=True)
-class IfStmt:
+class IfStmt(Node):
     condition: "Expr"
     then_body: list
     else_body: list | None
@@ -95,7 +110,7 @@ class IfStmt:
 
 
 @dataclass(frozen=True)
-class ForStmt:
+class ForStmt(Node):
     condition: "Expr"
     body: list
 
@@ -106,12 +121,12 @@ class ForStmt:
 
 
 @dataclass(frozen=True)
-class BreakStmt:
+class BreakStmt(Node):
     pass
 
 
 @dataclass(frozen=True)
-class ContinueStmt:
+class ContinueStmt(Node):
     pass
 
 
@@ -119,17 +134,18 @@ Stmt = ReturnStmt | ExprStmt | VarDecl | Assignment | IfStmt | ForStmt | BreakSt
 
 
 @dataclass(frozen=True)
-class Param:
+class Param(Node):
     name: str
     type: str
 
 
 @dataclass(frozen=True)
-class Function:
+class Function(Node):
     name: str
     params: list
     return_type: str
     body: list
+    name_span: Span | None = field(default=None, kw_only=True)  # span of just the identifier
 
     def __eq__(self, other):
         if not isinstance(other, Function):
@@ -143,7 +159,7 @@ class Function:
 
 
 @dataclass(frozen=True)
-class Program:
+class Program(Node):
     functions: list
 
     def __eq__(self, other):

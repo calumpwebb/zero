@@ -20,7 +20,9 @@ from zero.ast import (
     ForStmt,
     BreakStmt,
     ContinueStmt,
+    Span,
 )
+from zero.lexer import tokenize as lex_tokenize
 
 
 # Helper to reduce boilerplate for manual token construction
@@ -859,3 +861,30 @@ class TestForLoops:
         tokens = [CONTINUE, EOF]
         stmt = Parser(tokens).parse_statement()
         assert stmt == ContinueStmt()
+
+
+# =============================================================================
+# AST Span Tracking
+# =============================================================================
+
+
+class TestSpans:
+    def test_function_spans(self):
+        ast = parse(lex_tokenize("fn main() {}"))
+        func = ast.functions[0]
+        assert func.name_span == Span(1, 4, 1, 7)  # "main" identifier only
+        assert func.span == Span(1, 1, 1, 12)      # entire "fn main() {}"
+
+    def test_call_span(self):
+        ast = parse(lex_tokenize("fn main() { foo() }"))
+        call = ast.functions[0].body[0].expr
+        assert call.span == Span(1, 13, 1, 17)  # "foo()" - full call expression
+
+    def test_parse_validates_spans(self):
+        """Parsing through parse() guarantees all spans are set."""
+        ast = parse(lex_tokenize("fn main() { return 1 + 2 }"))
+        # Validation happens inside parse() - if we get here, all spans are set
+        assert ast.span is not None
+        assert ast.functions[0].span is not None
+        assert ast.functions[0].body[0].span is not None  # ReturnStmt
+        assert ast.functions[0].body[0].expr.span is not None  # BinaryExpr

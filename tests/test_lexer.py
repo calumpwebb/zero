@@ -504,6 +504,29 @@ class TestLoopTokens:
 # =============================================================================
 
 
+# =============================================================================
+# Token Position Tracking
+# =============================================================================
+
+
+class TestTokenPositions:
+    def test_token_positions_simple(self):
+        tokens = tokenize("fn main() {}")
+        assert tokens[0].line == 1 and tokens[0].column == 1   # fn
+        assert tokens[1].line == 1 and tokens[1].column == 4   # main
+
+    def test_token_positions_multiline(self):
+        tokens = tokenize("fn main() {\n  return 1\n}")
+        return_tok = [t for t in tokens if t.type == TokenType.RETURN][0]
+        assert return_tok.line == 2
+        assert return_tok.column == 3
+
+
+# =============================================================================
+# Errors
+# =============================================================================
+
+
 class TestErrors:
     def test_invalid_character(self):
         with pytest.raises(SyntaxError):
