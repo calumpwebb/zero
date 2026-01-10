@@ -12,7 +12,7 @@
       {
         "id": "zero",
         "aliases": ["Zero", "zero"],
-        "extensions": [".zero"],
+        "extensions": [".zr"],
         "configuration": "./language-configuration.json"
       }
     ],
